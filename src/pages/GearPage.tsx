@@ -28,6 +28,7 @@ export default function GearPage() {
   const [editing, setEditing] = useState<GearSummary | null>(null)
   const [lending, setLending] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [showOrder, setShowOrder] = useState(false)
   const activeCount = activeSwimmers(data.swimmers).length
   const schoolName = data.team.find((t) => t.id === 'team')?.schoolName ?? ''
   const totalToOrder = summaries.reduce((n, s) => n + s.toOrder, 0)
@@ -38,7 +39,8 @@ export default function GearPage() {
       setCopied(true)
       window.setTimeout(() => setCopied(false), 2000)
     } catch {
-      window.alert(orderListText(summaries, schoolName))
+      // Clipboard blocked: show the list so the coach can select and copy it.
+      setShowOrder(true)
     }
   }
 
@@ -104,6 +106,18 @@ export default function GearPage() {
           onChange={(itemId, quantity) => update(setGearQuantity(itemId, quantity))}
           onClose={() => setEditing(null)}
         />
+      )}
+      {showOrder && (
+        <Sheet title="Order list" onClose={() => setShowOrder(false)} footer={<Button className="flex-1" onClick={() => setShowOrder(false)}>Done</Button>}>
+          <p className="mb-2 text-sm text-slate-500">Select the text below and copy it.</p>
+          <textarea
+            readOnly
+            rows={10}
+            className="w-full rounded-xl border border-slate-300 p-3 font-mono text-sm"
+            value={orderListText(summaries, schoolName)}
+            onFocus={(e) => e.target.select()}
+          />
+        </Sheet>
       )}
       {lending && (
         <LendSheet

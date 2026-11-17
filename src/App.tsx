@@ -1,4 +1,4 @@
-import { HashRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import { HashRouter, MemoryRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom'
 import { DataProvider, useData, wasSignedIn } from './data/DataProvider'
 import ComingSoon from './pages/ComingSoon'
 import GearPage from './pages/GearPage'
@@ -13,10 +13,13 @@ const TABS = [
   { to: '/profile', label: 'Profile', icon: '👤' },
 ]
 
+// Preview builds run inside a host page that owns the URL, so keep routes in memory.
+const Router = import.meta.env.VITE_PREVIEW ? MemoryRouter : HashRouter
+
 export default function App() {
   return (
     <DataProvider>
-      <HashRouter>
+      <Router initialEntries={['/gear']}>
         <div className="md:flex">
           <nav className="hidden md:sticky md:top-0 md:flex md:h-dvh md:w-56 md:shrink-0 md:flex-col md:border-r md:border-slate-200 md:bg-white md:p-4">
             <div className="mb-6 px-3 text-xl font-bold text-brand-700">FlipTurn</div>
@@ -73,7 +76,7 @@ export default function App() {
             ))}
           </nav>
         </div>
-      </HashRouter>
+      </Router>
     </DataProvider>
   )
 }

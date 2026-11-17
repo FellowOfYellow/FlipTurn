@@ -101,6 +101,7 @@ function SwimmerSheet({
 }) {
   const { data } = useData()
   const [form, setForm] = useState(swimmer)
+  const [confirmingRemove, setConfirmingRemove] = useState(false)
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((f) => ({ ...f, [key]: value }))
   const valid = form.firstName.trim() !== '' && form.lastName.trim() !== ''
   const gearById = new Map(data.gear.map((g) => [g.id, g]))
@@ -116,19 +117,25 @@ function SwimmerSheet({
       onClose={onClose}
       footer={
         <>
-          {!isNew && (
-            <Button
-              variant="danger"
-              onClick={() => {
-                if (window.confirm(`Remove ${swimmer.firstName} ${swimmer.lastName} from the roster?`)) onDelete()
-              }}
-            >
-              Remove
-            </Button>
+          {confirmingRemove ? (
+            <>
+              <Button variant="secondary" onClick={() => setConfirmingRemove(false)}>Cancel</Button>
+              <Button variant="danger" className="flex-1" onClick={onDelete}>
+                Yes, remove {swimmer.firstName}
+              </Button>
+            </>
+          ) : (
+            <>
+              {!isNew && (
+                <Button variant="danger" onClick={() => setConfirmingRemove(true)}>
+                  Remove
+                </Button>
+              )}
+              <Button className="flex-1" disabled={!valid} onClick={submit}>
+                {isNew ? 'Add swimmer' : 'Save'}
+              </Button>
+            </>
           )}
-          <Button className="flex-1" disabled={!valid} onClick={submit}>
-            {isNew ? 'Add swimmer' : 'Save'}
-          </Button>
         </>
       }
     >

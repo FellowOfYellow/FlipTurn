@@ -1,6 +1,8 @@
-import { useEffect, type ReactNode } from 'react'
-import type { Swimmer } from '../data/types'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { photoFor } from '../data/actions'
+import { useData } from '../data/DataProvider'
 import { initials } from '../lib/format'
+import { resizePhoto } from '../lib/photo'
 
 export function PageHeader({ title, action }: { title: string; action?: ReactNode }) {
   return (
@@ -196,10 +198,77 @@ export function EmptyState({ children }: { children: ReactNode }) {
   return <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">{children}</div>
 }
 
-export function Avatar({ swimmer }: { swimmer: Swimmer }) {
-  return (
-    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-700">
-      {initials(swimmer.firstName, swimmer.lastName)}
+const AVATAR_SIZES = { sm: 'size-10 text-sm', md: 'size-14 text-lg', lg: 'size-24 text-3xl' }
+
+// Shows the person's photo when there is one, otherwise their initials.
+export function Avatar({
+  id,
+  name,
+  size = 'sm',
+  photo,
+}: {
+  id: string
+  name: string
+  size?: keyof typeof AVATAR_SIZES
+  photo?: string | null
+}) {
+  const { data } = useData()
+  const src = photo === undefined ? photoFor(data, id) : photo
+  const [first = '', ...rest] = name.trim().split(/\s+/)
+  const classes = `${AVATAR_SIZES[size]} shrink-0 rounded-full`
+  return src ? (
+    <img src={src} alt="" className={`${classes} object-cover`} />
+  ) : (
+    <span className={`${classes} flex items-center justify-center bg-brand-100 font-bold text-brand-700`}>
+      {initials(first, rest.at(-1) ?? '')}
     </span>
+  )
+}
+
+// Photo field for a form: shows the current photo with buttons to add, change
+// or remove it. The value is a small JPEG data URL, or null for none.
+export function PhotoField({
+  name,
+  value,
+  onChange,
+}: {
+  name: string
+  value: string | null
+  onChange: (value: string | null) => void
+}) {
+  const input = useRef<HTMLInputElement>(null)
+  const [error, setError] = useState<string | null>(null)
+  return (
+    <div className="flex items-center gap-4">
+      <Avatar id="" name={name || '?'} size="lg" photo={value} />
+      <div className="flex flex-col items-start gap-1">
+        <input
+          ref={input}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={async (e) => {
+            const file = e.target.files?.[0]
+            e.target.value = ''
+            if (!file) return
+            try {
+              onChange(await resizePhoto(file))
+              setError(null)
+            } catch (err) {
+              setError((err as Error).message)
+            }
+          }}
+        />
+        <Button variant="secondary" onClick={() => input.current?.click()}>
+          {value ? 'Change photo' : 'Add photo'}
+        </Button>
+        {value && (
+          <Button variant="ghost" onClick={() => onChange(null)}>
+            Remove photo
+          </Button>
+        )}
+        {error && <p className="text-xs text-red-700">{error}</p>}
+      </div>
+    </div>
   )
 }

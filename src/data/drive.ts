@@ -8,10 +8,21 @@ export const FOLDER_NAME = 'FlipTurn'
 
 // Which collections live in which Drive file, matching the folder layout in
 // the implementation plan.
-const FILES: Record<string, Collection[]> = {
+export const FILES: Record<string, Collection[]> = {
   'team.json': ['team', 'gear'],
+  'coaches.json': ['coaches'],
   'swimmers.json': ['swimmers'],
   'gear-loans.json': ['loans'],
+  'photos.json': ['photos'],
+}
+
+// Files later phases fill in. They're created with the team so an assistant
+// coach who picked the folder's files already has access to them.
+const RESERVED_FILES = ['competitions.json', 'workouts.json']
+
+export interface DriveUser {
+  name: string
+  email: string
 }
 
 export class DriveError extends Error {
@@ -22,10 +33,20 @@ export class DriveError extends Error {
   }
 }
 
+export function fileContents(data: AppData, name: string): string {
+  const contents = Object.fromEntries(FILES[name].map((key) => [key, data[key]]))
+  return JSON.stringify({ version: 1, ...contents }, null, 2)
+}
+
 export class DriveClient {
   private token: string
   folderId: string | null = null
+  // Only the folder's owner creates missing files. A file an assistant coach
+  // created would be invisible to the head coach under the drive.file scope.
+  private ownsFolder = false
   private fileIds = new Map<string, string>()
+  // What each file held when last read or written, so unchanged files are skipped.
+  private lastSeen = new Map<string, string>()
 
   constructor(token: string) {
     this.token = token
@@ -47,33 +68,65 @@ export class DriveClient {
   }
 
   private async list(query: string): Promise<{ id: string; name: string }[]> {
-    const params = new URLSearchParams({ q: query, fields: 'files(id,name)', spaces: 'drive' })
+    const params = new URLSearchParams({ q: query, fields: 'files(id,name)', spaces: 'drive', pageSize: '100' })
     const response = await this.request(`${API}/files?${params}`)
     return ((await response.json()) as { files: { id: string; name: string }[] }).files
   }
 
-  // Finds the FlipTurn folder this app created earlier, or creates it.
-  async connect(): Promise<string> {
-    const folders = await this.list(
-      `name = '${FOLDER_NAME}' and mimeType = '${FOLDER_MIME}' and trashed = false`,
-    )
-    if (folders.length > 0) {
-      this.folderId = folders[0].id
-    } else {
-      const response = await this.request(`${API}/files?fields=id`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: FOLDER_NAME, mimeType: FOLDER_MIME }),
-      })
-      this.folderId = ((await response.json()) as { id: string }).id
-    }
+  async getUser(): Promise<DriveUser> {
+    const response = await this.request(`${API}/about?fields=user(displayName,emailAddress)`)
+    const { user } = (await response.json()) as { user: { displayName: string; emailAddress: string } }
+    return { name: user.displayName, email: user.emailAddress.toLowerCase() }
+  }
+
+  // FlipTurn folders this coach can reach: ones the app created, or a shared
+  // one they picked earlier. Returns null when there are none yet.
+  async findTeamFolder(preferredId: string | null): Promise<string | null> {
+    const folders = await this.list(`name = '${FOLDER_NAME}' and mimeType = '${FOLDER_MIME}' and trashed = false`)
+    const folder = folders.find((f) => f.id === preferredId) ?? folders[0]
+    return folder?.id ?? null
+  }
+
+  async createTeamFolder(data: AppData): Promise<string> {
+    const response = await this.request(`${API}/files?fields=id`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: FOLDER_NAME, mimeType: FOLDER_MIME }),
+    })
+    this.folderId = ((await response.json()) as { id: string }).id
+    this.ownsFolder = true
+    this.fileIds.clear()
+    this.lastSeen.clear()
+    for (const name of Object.keys(FILES)) await this.writeFile(name, fileContents(data, name))
+    for (const name of RESERVED_FILES) await this.writeFile(name, JSON.stringify({ version: 1 }))
     return this.folderId
+  }
+
+  // Opens a team folder and reports which data files FlipTurn can't see yet,
+  // which happens when Google shares a picked folder without its contents.
+  async openTeamFolder(folderId: string): Promise<string[]> {
+    if (this.folderId !== folderId) {
+      this.fileIds.clear()
+      this.lastSeen.clear()
+    }
+    this.folderId = folderId
+    const meta = await this.request(`${API}/files/${folderId}?fields=ownedByMe`)
+    this.ownsFolder = ((await meta.json()) as { ownedByMe: boolean }).ownedByMe
+    await this.refreshFileIds()
+    if (this.ownsFolder) {
+      // Folders made by an earlier version may lack newer files; add them.
+      for (const name of RESERVED_FILES) {
+        if (!this.fileIds.has(name)) await this.writeFile(name, JSON.stringify({ version: 1 }))
+      }
+      return []
+    }
+    return [...Object.keys(FILES), ...RESERVED_FILES].filter((name) => !this.fileIds.has(name))
   }
 
   // Re-listed on every pull so files another coach created are picked up.
   private async refreshFileIds(): Promise<void> {
     for (const file of await this.list(`'${this.folderId}' in parents and trashed = false`)) {
-      if (file.name in FILES) this.fileIds.set(file.name, file.id)
+      this.fileIds.set(file.name, file.id)
     }
   }
 
@@ -84,7 +137,9 @@ export class DriveClient {
       const id = this.fileIds.get(name)
       if (!id) continue
       const response = await this.request(`${API}/files/${id}?alt=media`)
-      const contents = (await response.json()) as Partial<AppData>
+      const text = await response.text()
+      this.lastSeen.set(name, text)
+      const contents = JSON.parse(text) as Partial<AppData>
       for (const key of collections) {
         if (Array.isArray(contents[key])) Object.assign(data, { [key]: contents[key] })
       }
@@ -93,12 +148,13 @@ export class DriveClient {
   }
 
   // Merges with whatever another coach saved since our last pull, then writes
-  // the merged copy back, so neither device overwrites the other's edits.
+  // back only the files whose merged contents differ from what Drive holds.
   async push(local: AppData): Promise<AppData> {
     const merged = mergeData(local, await this.pull())
-    for (const [name, collections] of Object.entries(FILES)) {
-      const contents = Object.fromEntries(collections.map((key) => [key, merged[key]]))
-      await this.writeFile(name, JSON.stringify({ version: 1, ...contents }, null, 2))
+    for (const name of Object.keys(FILES)) {
+      const body = fileContents(merged, name)
+      if (!this.fileIds.has(name) && !this.ownsFolder) continue
+      if (this.lastSeen.get(name) !== body) await this.writeFile(name, body)
     }
     return merged
   }
@@ -111,26 +167,27 @@ export class DriveClient {
         headers: { 'Content-Type': 'application/json' },
         body,
       })
-      return
+    } else {
+      const boundary = `flipturn${Math.random().toString(36).slice(2)}`
+      const metadata = { name, parents: [this.folderId], mimeType: 'application/json' }
+      const multipart = [
+        `--${boundary}`,
+        'Content-Type: application/json; charset=UTF-8',
+        '',
+        JSON.stringify(metadata),
+        `--${boundary}`,
+        'Content-Type: application/json',
+        '',
+        body,
+        `--${boundary}--`,
+      ].join('\r\n')
+      const response = await this.request(`${UPLOAD}/files?uploadType=multipart&fields=id`, {
+        method: 'POST',
+        headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+        body: multipart,
+      })
+      this.fileIds.set(name, ((await response.json()) as { id: string }).id)
     }
-    const boundary = `flipturn${Math.random().toString(36).slice(2)}`
-    const metadata = { name, parents: [this.folderId], mimeType: 'application/json' }
-    const multipart = [
-      `--${boundary}`,
-      'Content-Type: application/json; charset=UTF-8',
-      '',
-      JSON.stringify(metadata),
-      `--${boundary}`,
-      'Content-Type: application/json',
-      '',
-      body,
-      `--${boundary}--`,
-    ].join('\r\n')
-    const response = await this.request(`${UPLOAD}/files?uploadType=multipart&fields=id`, {
-      method: 'POST',
-      headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
-      body: multipart,
-    })
-    this.fileIds.set(name, ((await response.json()) as { id: string }).id)
+    this.lastSeen.set(name, body)
   }
 }

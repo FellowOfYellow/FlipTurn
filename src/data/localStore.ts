@@ -8,9 +8,11 @@ export function emptyData(): AppData {
   // Timestamp 0 so any real edit, local or from Drive, wins over the defaults.
   return {
     team: [{ id: 'team', schoolName: '', updatedAt: 0 }],
+    coaches: [],
     swimmers: [],
     gear: defaultGearItems(0),
     loans: [],
+    photos: [],
   }
 }
 

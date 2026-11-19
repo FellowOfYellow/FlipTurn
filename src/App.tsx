@@ -1,4 +1,4 @@
-import { HashRouter, MemoryRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import { HashRouter, Link, MemoryRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom'
 import { DataProvider, useData, wasSignedIn } from './data/DataProvider'
 import ComingSoon from './pages/ComingSoon'
 import GearPage from './pages/GearPage'
@@ -84,6 +84,16 @@ export default function App() {
 function SyncBanner() {
   const { status, error, signIn } = useData()
   if (status === 'synced' || status === 'syncing' || status === 'local-only') return null
+  if (status === 'choose-team') {
+    return (
+      <div className="flex items-center justify-between gap-3 bg-brand-50 px-4 py-2 text-sm text-brand-900 md:px-8">
+        <span>Finish setting up Google Drive: start a new team or join one.</span>
+        <Link to="/profile" className="flex min-h-10 shrink-0 items-center rounded-lg bg-brand-700 px-3 font-semibold text-white">
+          Finish setup
+        </Link>
+      </div>
+    )
+  }
   if (status === 'error') {
     return <div className="bg-amber-50 px-4 py-2 text-sm text-amber-900 md:px-8">{error}</div>
   }

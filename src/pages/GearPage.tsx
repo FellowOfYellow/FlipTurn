@@ -258,7 +258,7 @@ function LendSheet({
               {sorted.map((s) => (
                 <li key={s.id}>
                   <button type="button" onClick={() => choose(s)} className="flex w-full items-center gap-3 py-2 text-left">
-                    <Avatar swimmer={s} />
+                    <Avatar id={s.id} name={`${s.firstName} ${s.lastName}`} />
                     <span className="font-medium">{s.firstName} {s.lastName}</span>
                     <span className="ml-auto text-xs text-slate-500">{s.level}</span>
                   </button>
@@ -358,7 +358,7 @@ function LentOut({ swimmers, onReturn }: { swimmers: Swimmer[]; onReturn: (loanI
           {groups.map(({ swimmer, items }) => (
             <li key={swimmer!.id} className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
               <div className="mb-2 flex items-center gap-3">
-                <Avatar swimmer={swimmer!} />
+                <Avatar id={swimmer!.id} name={`${swimmer!.firstName} ${swimmer!.lastName}`} />
                 <span className="font-semibold">{swimmer!.firstName} {swimmer!.lastName}</span>
               </div>
               <ul className="divide-y divide-slate-100">

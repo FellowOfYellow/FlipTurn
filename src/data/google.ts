@@ -32,7 +32,8 @@ declare global {
   }
 }
 
-export const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''
+// Preview builds run inside a sandboxed frame where Google's sign-in popup can't open.
+export const googleClientId = import.meta.env.VITE_PREVIEW ? '' : (import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '')
 
 let scriptPromise: Promise<void> | null = null
 

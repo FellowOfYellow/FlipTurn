@@ -4,7 +4,8 @@
 
 import { zipSync, strToU8 } from 'fflate'
 import { yearsCoaching } from './actions'
-import { describeItem, summarizeGear } from './gear'
+import { sortBags, sortShopping, sortSupplies } from './closet'
+import { describeItem, summarizeGear, teamFinSizes } from './gear'
 import { RELAY_SLOTS, type AppData } from './types'
 import { liveWorkouts, sortWorkouts, workoutBlocks, workoutTags } from './workouts'
 
@@ -25,7 +26,7 @@ export function backupTables(data: AppData, now = new Date()): Table[] {
     .filter((s) => !s.deleted)
     .sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
   const swimmerName = new Map(swimmers.map((s) => [s.id, `${s.firstName} ${s.lastName}`.trim()]))
-  const gear = summarizeGear(data.gear, data.swimmers, data.loans)
+  const gear = summarizeGear(data.gear, data.swimmers, data.loans, teamFinSizes(data))
   const itemName = new Map(
     gear.flatMap((g) => g.lines.map((l) => [l.itemId, describeItem({ type: g.info.type, size: l.size })] as const)),
   )
@@ -35,12 +36,12 @@ export function backupTables(data: AppData, now = new Date()): Table[] {
     {
       name: 'Swimmers',
       rows: [
-        ['Last name', 'First name', 'Active', 'Level', 'Grade', 'Captain', 'Paddle size', 'Fin size', 'Phone', 'Email',
-          'Parent', 'Parent phone', 'Parent email', 'Date joined', 'Club teams'],
+        ['Last name', 'First name', 'Active', 'Level', 'Grade', 'Captain', 'Paddle size', 'Fin size', 'Shoe size',
+          'Registration', 'Gear notes', 'Phone', 'Email', 'Parent', 'Parent phone', 'Parent email', 'Date joined', 'Club teams'],
         ...swimmers.map((s) => [
           s.lastName, s.firstName, yesNo(s.active), s.level, s.grade ?? '', yesNo(s.captain), s.paddleSize ?? '',
-          s.finSize ?? '', s.phone, s.email, s.parentName, s.parentPhone, s.parentEmail, s.dateJoined ?? '',
-          s.clubTeams.join(', '),
+          s.finSize ?? '', s.shoeSize ?? '', s.registration ?? '', s.gearNotes ?? '', s.phone, s.email, s.parentName,
+          s.parentPhone, s.parentEmail, s.dateJoined ?? '', s.clubTeams.join(', '),
         ]),
       ],
     },
@@ -95,6 +96,30 @@ export function backupTables(data: AppData, now = new Date()): Table[] {
       ],
     },
     {
+      name: 'Gear bags',
+      rows: [
+        ['Bag', 'Swimmer', 'Fin size', 'Fin number', 'Paddle size', 'Paddle number', 'Notes'],
+        ...sortBags(data.bags ?? []).map((b) => [
+          b.number, b.swimmerId ? swimmerName.get(b.swimmerId) ?? '' : '', b.finSize, b.finNumber, b.paddleSize,
+          b.paddleNumber, b.notes,
+        ]),
+      ],
+    },
+    {
+      name: 'Supplies',
+      rows: [
+        ['Item', 'Quantity', 'Size', 'Number', 'Notes'],
+        ...sortSupplies(data.supplies ?? []).map((i) => [i.name, i.quantity ?? '?', i.size, i.number, i.notes]),
+      ],
+    },
+    {
+      name: 'Shopping list',
+      rows: [
+        ['Item', 'Size', 'Quantity', 'Bought', 'Notes'],
+        ...sortShopping(data.shopping ?? []).map((i) => [i.item, i.size, i.quantity ?? '', yesNo(i.done), i.notes]),
+      ],
+    },
+    {
       name: 'Workouts',
       rows: [
         ['Workout', 'Date', 'Tags', 'Warm up', 'Sets', 'Cool down'],
@@ -116,6 +141,7 @@ export function backupTables(data: AppData, now = new Date()): Table[] {
       rows: [
         ['School', school],
         ['Updated', now.toLocaleString()],
+        ['Team notes', data.team.find((t) => t.id === 'team')?.notes ?? ''],
         ['Note', 'FlipTurn rewrites this sheet whenever the team syncs. Edits made here are not copied into the app.'],
       ],
     },

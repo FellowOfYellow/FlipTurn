@@ -11,9 +11,12 @@ import {
   openLoans,
   orderListText,
   summarizeGear,
+  teamFinSizes,
   type GearSummary,
 } from '../data/gear'
 import type { GearType, Swimmer } from '../data/types'
+import { GearBags, ShoppingList, Supplies } from './gear/Closet'
+import ImportSheet from './gear/ImportSheet'
 
 const ICONS: Record<GearType, string> = {
   paddles: '✋',
@@ -24,9 +27,10 @@ const ICONS: Record<GearType, string> = {
 
 export default function GearPage() {
   const { data, update } = useData()
-  const summaries = useMemo(() => summarizeGear(data.gear, data.swimmers, data.loans), [data])
+  const summaries = useMemo(() => summarizeGear(data.gear, data.swimmers, data.loans, teamFinSizes(data)), [data])
   const [editing, setEditing] = useState<GearSummary | null>(null)
   const [lending, setLending] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [copied, setCopied] = useState(false)
   const [showOrder, setShowOrder] = useState(false)
   const activeCount = activeSwimmers(data.swimmers).length
@@ -47,6 +51,11 @@ export default function GearPage() {
   return (
     <>
       <PageHeader title="Gear" action={<Button onClick={() => setLending(true)}>Lend gear</Button>} />
+      <div className="px-4 pb-4 md:px-8">
+        <Button variant="secondary" onClick={() => setImporting(true)}>
+          Import spreadsheet
+        </Button>
+      </div>
 
       <Section title="Inventory" subtitle="Everything the team owns, including gear that's lent out. Tap to update.">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -99,6 +108,10 @@ export default function GearPage() {
       </Section>
 
       <LentOut swimmers={data.swimmers} onReturn={(id) => update(returnLoan(id))} />
+      <GearBags />
+      <Supplies />
+      <ShoppingList />
+      {importing && <ImportSheet onClose={() => setImporting(false)} />}
 
       {editing && (
         <InventorySheet

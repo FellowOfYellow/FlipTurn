@@ -1,5 +1,5 @@
 import { scrubDeletedSwimmer } from './merge'
-import type { AppData, Coach, Competition, GearLoan, Swimmer } from './types'
+import type { AppData, Coach, Competition, GearItem, GearLoan, Swimmer, TeamSettings } from './types'
 
 // Pure updates passed to update(); each stamps updatedAt so sync can merge.
 
@@ -60,12 +60,19 @@ function removeFromCompetition(c: Competition, swimmerId: string): Competition {
 
 export const setGearQuantity =
   (itemId: string, quantity: number) =>
-  (data: AppData): AppData => ({
-    ...data,
-    gear: data.gear.map((g) =>
-      g.id === itemId ? { ...g, quantity: Math.max(0, Math.round(quantity)), updatedAt: Date.now() } : g,
-    ),
-  })
+  (data: AppData): AppData => {
+    const clean = Math.max(0, Math.round(quantity))
+    if (!data.gear.some((g) => g.id === itemId)) {
+      // A size from the team's own list that has no inventory line yet.
+      const [type, ...size] = itemId.split(':') as [GearItem['type'], ...string[]]
+      const item: GearItem = { id: itemId, type, size: size.join(':') || null, quantity: clean, updatedAt: Date.now() }
+      return { ...data, gear: [...data.gear, item] }
+    }
+    return {
+      ...data,
+      gear: data.gear.map((g) => (g.id === itemId ? { ...g, quantity: clean, deleted: false, updatedAt: Date.now() } : g)),
+    }
+  }
 
 export const lendGear =
   (swimmerId: string, itemIds: string[], lentOn: string = today()) =>
@@ -96,6 +103,15 @@ export const setSchoolName =
     ...data,
     team: data.team.map((t) => (t.id === 'team' ? { ...t, schoolName, updatedAt: Date.now() } : t)),
   })
+
+// Changes team-wide settings, creating the team record if there isn't one yet.
+export const updateTeam =
+  (change: Partial<Omit<TeamSettings, 'id' | 'updatedAt'>>) =>
+  (data: AppData): AppData => {
+    const team = data.team.find((t) => t.id === 'team') ?? { id: 'team', schoolName: '', updatedAt: 0 }
+    const record = { ...team, ...change, updatedAt: Date.now() }
+    return { ...data, team: data.team.some((t) => t.id === 'team') ? data.team.map((t) => (t.id === 'team' ? record : t)) : [...data.team, record] }
+  }
 
 export const LOCAL_COACH_ID = 'local-coach'
 

@@ -10,10 +10,12 @@ import {
   saveCoach,
   setPhoto,
   setSchoolName,
+  updateTeam,
   yearsCoaching,
 } from '../data/actions'
 import { useData, wasSignedIn } from '../data/DataProvider'
 import { FOLDER_NAME } from '../data/drive'
+import { sortSizes, teamFinSizes } from '../data/gear'
 import { pickerAvailable } from '../data/picker'
 import type { Coach } from '../data/types'
 
@@ -23,7 +25,8 @@ export default function ProfilePage() {
   const { data, update, user } = useData()
   const [editing, setEditing] = useState<Draft | null>(null)
   const [inviting, setInviting] = useState(false)
-  const saved = data.team.find((t) => t.id === 'team')?.schoolName ?? ''
+  const team = data.team.find((t) => t.id === 'team')
+  const saved = team?.schoolName ?? ''
   const me = findMyCoach(data, user?.email ?? null)
   const myDraft: Draft = me ?? {
     id: user ? coachIdFor(user.email) : LOCAL_COACH_ID,
@@ -99,6 +102,7 @@ export default function ProfilePage() {
           {/* Keyed on the saved name so a change synced from another coach resets the field. */}
           <SchoolField key={saved} saved={saved} onSave={(name) => update(setSchoolName(name))} />
           <p className="mt-2 text-xs text-slate-500">Shared by every coach on the team.</p>
+          <TeamExtras key={`${team?.updatedAt ?? 0}`} />
         </div>
       </Section>
 
@@ -410,5 +414,38 @@ function DriveSection() {
         )}
       </div>
     </Section>
+  )
+}
+
+// Fin sizes and team notes. Keyed on the team record so a synced change from
+// another coach refreshes the fields.
+function TeamExtras() {
+  const { data, update } = useData()
+  const team = data.team.find((t) => t.id === 'team')
+  const sizes = teamFinSizes(data)
+  const [sizeText, setSizeText] = useState(sizes.join(', '))
+  const [notes, setNotes] = useState(team?.notes ?? '')
+  const saveSizes = () => {
+    const list = sortSizes(sizeText.split(',').map((s) => s.trim()).filter(Boolean))
+    if (list.join() !== sizes.join()) update(updateTeam({ finSizes: list }))
+    setSizeText(list.join(', '))
+  }
+  return (
+    <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
+      <Field label="Fin sizes (separate with commas)">
+        <input id="team-finSizes" className={inputClass} value={sizeText} onChange={(e) => setSizeText(e.target.value)} onBlur={saveSizes} />
+      </Field>
+      <p className="text-xs text-slate-500">Used for swimmer fin sizes and gear counts, e.g. 4.5-5, 6-7, 7.5-9.</p>
+      <Field label="Team notes">
+        <textarea
+          id="team-notes"
+          className={`${inputClass} h-32 py-2 font-mono text-sm`}
+          value={notes}
+          placeholder="Anything the whole staff should know"
+          onChange={(e) => setNotes(e.target.value)}
+          onBlur={() => notes !== (team?.notes ?? '') && update(updateTeam({ notes }))}
+        />
+      </Field>
+    </div>
   )
 }

@@ -1,6 +1,7 @@
 import {
   FIN_SIZES,
   PADDLE_SIZES,
+  type AppData,
   type GearItem,
   type GearLoan,
   type GearType,
@@ -36,6 +37,18 @@ export const GEAR_TYPES: GearTypeInfo[] = [
   { type: 'gearBag', label: 'Gear bags', singular: 'Gear bag', sizes: null },
   { type: 'kickboard', label: 'Kickboards', singular: 'Kickboard', sizes: null },
 ]
+
+export function teamFinSizes(data: Pick<AppData, 'team'>): string[] {
+  const sizes = data.team.find((t) => t.id === 'team' && !t.deleted)?.finSizes
+  return sizes?.length ? sizes : [...FIN_SIZES]
+}
+
+// Sorts sizes like "4.5-5", "7.5-9", "12.5-13" by their first number; sizes
+// with no number (like "Y2" for youth) go first.
+export function sortSizes(sizes: string[]): string[] {
+  const first = (s: string) => parseFloat(/\d+(\.\d+)?/.exec(s)?.[0] ?? '-1')
+  return [...new Set(sizes)].sort((a, b) => first(a) - first(b) || a.localeCompare(b))
+}
 
 export function gearTypeInfo(type: GearType): GearTypeInfo {
   return GEAR_TYPES.find((g) => g.type === type)!
@@ -97,6 +110,7 @@ export function summarizeGear(
   gear: GearItem[],
   swimmers: Swimmer[],
   loans: GearLoan[],
+  finSizes: readonly string[] = FIN_SIZES,
 ): GearSummary[] {
   const active = activeSwimmers(swimmers)
   const lent = new Map<string, number>()
@@ -106,7 +120,12 @@ export function summarizeGear(
   const quantity = new Map(gear.filter((g) => !g.deleted).map((g) => [g.id, g.quantity]))
 
   return GEAR_TYPES.map((info) => {
-    const lines: SizeLine[] = (info.sizes ?? [null]).map((size) => {
+    // The team's fin sizes, plus any size that still has stock so it never hides.
+    const sizes =
+      info.type === 'fins'
+        ? [...finSizes, ...gear.filter((g) => g.type === 'fins' && !g.deleted && g.quantity > 0 && g.size && !finSizes.includes(g.size)).map((g) => g.size!)]
+        : info.sizes
+    const lines: SizeLine[] = (sizes ?? [null]).map((size) => {
       const itemId = gearItemId(info.type, size)
       const needed =
         size === null

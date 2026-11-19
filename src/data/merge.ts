@@ -1,6 +1,6 @@
 import type { AppData, Collection, Swimmer, SyncedRecord } from './types'
 
-export const COLLECTIONS: Collection[] = ['team', 'coaches', 'swimmers', 'gear', 'loans', 'photos', 'competitions', 'workouts', 'blocks', 'tags']
+export const COLLECTIONS: Collection[] = ['team', 'coaches', 'swimmers', 'gear', 'loans', 'photos', 'competitions', 'workouts', 'blocks', 'tags', 'bags', 'supplies', 'shopping']
 
 // Union of two copies of a collection; for the same id the newer edit wins.
 export function mergeRecords<T extends SyncedRecord>(a: T[], b: T[]): T[] {
@@ -26,6 +26,9 @@ export function mergeData(a: AppData, b: Partial<AppData>): AppData {
     workouts: mergeRecords(a.workouts ?? [], b.workouts ?? []),
     blocks: mergeRecords(a.blocks ?? [], b.blocks ?? []),
     tags: mergeRecords(a.tags ?? [], b.tags ?? []),
+    bags: mergeRecords(a.bags ?? [], b.bags ?? []),
+    supplies: mergeRecords(a.supplies ?? [], b.supplies ?? []),
+    shopping: mergeRecords(a.shopping ?? [], b.shopping ?? []),
   }
 }
 
@@ -39,6 +42,9 @@ export function withSwimmerDefaults(s: Partial<Swimmer> & SyncedRecord): Swimmer
     active: true,
     paddleSize: null,
     finSize: null,
+    shoeSize: '',
+    registration: null,
+    gearNotes: '',
     grade: null,
     phone: '',
     email: '',

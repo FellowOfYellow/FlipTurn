@@ -13,8 +13,12 @@ export type SwimmerLevel = (typeof SWIMMER_LEVELS)[number]
 export const PADDLE_SIZES = ['S', 'M', 'L'] as const
 export type PaddleSize = (typeof PADDLE_SIZES)[number]
 
+// The fin sizes a team starts with. A team can switch to its own list (for
+// example brand ranges like "7.5-9"), saved on its team settings.
 export const FIN_SIZES = ['6', '7', '8', '9', '10', '11', '12', '13', '14'] as const
-export type FinSize = (typeof FIN_SIZES)[number]
+
+export const REGISTRATION = ['Registered', 'Registered, but…', 'Not registered'] as const
+export type Registration = (typeof REGISTRATION)[number]
 
 export const GRADES = ['Freshman', 'Sophomore', 'Junior', 'Senior'] as const
 export type Grade = (typeof GRADES)[number]
@@ -25,7 +29,11 @@ export interface Swimmer extends SyncedRecord {
   level: SwimmerLevel
   active: boolean
   paddleSize: PaddleSize | null
-  finSize: FinSize | null
+  finSize: string | null
+  shoeSize: string
+  registration: Registration | null
+  // Gear notes, like "Already has fins & paddles".
+  gearNotes: string
   grade: Grade | null
   phone: string
   email: string
@@ -124,6 +132,38 @@ export interface CustomTag extends SyncedRecord {
 
 export interface TeamSettings extends SyncedRecord {
   schoolName: string
+  // The team's own fin sizes; FIN_SIZES when not set.
+  finSizes?: string[]
+  // Anything from an imported spreadsheet that had no other home.
+  notes?: string
+}
+
+// A numbered gear bag and the numbered fins and paddles packed in it.
+export interface GearBag extends SyncedRecord {
+  number: string
+  swimmerId: string | null
+  finSize: string
+  finNumber: string
+  paddleSize: string
+  paddleNumber: string
+  notes: string
+}
+
+// Anything else in the gear closet: caps, suits, towels, spare fins.
+export interface SupplyItem extends SyncedRecord {
+  name: string
+  quantity: number | null
+  size: string
+  number: string
+  notes: string
+}
+
+export interface ShoppingItem extends SyncedRecord {
+  item: string
+  size: string
+  quantity: number | null
+  notes: string
+  done: boolean
 }
 
 export interface AppData {
@@ -137,6 +177,9 @@ export interface AppData {
   workouts: Workout[]
   blocks: WorkoutBlock[]
   tags: CustomTag[]
+  bags: GearBag[]
+  supplies: SupplyItem[]
+  shopping: ShoppingItem[]
 }
 
 export type Collection = keyof AppData

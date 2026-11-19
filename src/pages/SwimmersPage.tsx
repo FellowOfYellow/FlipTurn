@@ -3,9 +3,9 @@ import { Avatar, Button, Chips, EmptyState, Field, PageHeader, PhotoField, Secti
 import { deleteSwimmer, newId, photoFor, saveSwimmer, setPhoto, today } from '../data/actions'
 import { competitionHistory, focusStrokes } from '../data/competitions'
 import { useData } from '../data/DataProvider'
-import { describeItem, openLoans } from '../data/gear'
+import { describeItem, openLoans, teamFinSizes } from '../data/gear'
 import { withSwimmerDefaults } from '../data/merge'
-import { FIN_SIZES, GRADES, PADDLE_SIZES, SWIMMER_LEVELS, type Swimmer, type SwimmerLevel } from '../data/types'
+import { GRADES, PADDLE_SIZES, REGISTRATION, SWIMMER_LEVELS, type Swimmer, type SwimmerLevel } from '../data/types'
 import { formatLongDate } from '../lib/format'
 
 type Filter = 'active' | 'inactive' | 'all'
@@ -109,6 +109,7 @@ function SwimmerProfile({ swimmer: s, onEdit, onClose }: { swimmer: Swimmer; onE
   const holding = openLoans(data.loans).filter((l) => l.swimmerId === s.id)
   const strokes = focusStrokes(data, s.id)
   const history = competitionHistory(data, s.id)
+  const bags = (data.bags ?? []).filter((b) => !b.deleted && b.swimmerId === s.id)
 
   return (
     <Sheet
@@ -174,8 +175,21 @@ function SwimmerProfile({ swimmer: s, onEdit, onClose }: { swimmer: Swimmer; onE
           )}
         </ProfileRow>
         <ProfileRow label="Gear sizes">
-          Paddles {s.paddleSize ?? '—'} · Fins {s.finSize ?? '—'}
+          Paddles {s.paddleSize ?? '—'} · Fins {s.finSize ?? '—'} · Shoes {s.shoeSize || '—'}
         </ProfileRow>
+        <ProfileRow label="Registration">{s.registration ?? <span className="text-slate-500">Not set</span>}</ProfileRow>
+        {(s.gearNotes || bags.length > 0) && (
+          <ProfileRow label="Gear notes and bags">
+            {bags.map((b) => (
+              <div key={b.id}>
+                Bag {b.number}
+                {b.finNumber && ` · fins #${b.finNumber}`}
+                {b.paddleNumber && ` · paddles #${b.paddleNumber}`}
+              </div>
+            ))}
+            {s.gearNotes && <div className="whitespace-pre-wrap">{s.gearNotes}</div>}
+          </ProfileRow>
+        )}
         <ProfileRow label="Gear they have">
           {holding.length > 0 ? (
             holding.map((l) => {
@@ -250,12 +264,14 @@ function SwimmerForm({
   onDelete: () => void
   onClose: () => void
 }) {
+  const { data } = useData()
+  const finSizes = [...new Set([...teamFinSizes(data), ...(swimmer.finSize ? [swimmer.finSize] : [])])]
   const [form, setForm] = useState(swimmer)
   const [photo, setPhotoValue] = useState(initialPhoto)
   const [clubText, setClubText] = useState(swimmer.clubTeams.join(', '))
   const [confirmingRemove, setConfirmingRemove] = useState(false)
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setForm((f) => ({ ...f, [key]: value }))
-  const valid = form.firstName.trim() !== '' && form.lastName.trim() !== ''
+  const valid = form.firstName.trim() !== ''
   const fullName = `${form.firstName} ${form.lastName}`.trim()
 
   const submit = () => {
@@ -271,6 +287,8 @@ function SwimmerForm({
         parentName: trim(form.parentName),
         parentPhone: trim(form.parentPhone),
         parentEmail: trim(form.parentEmail),
+        shoeSize: trim(form.shoeSize),
+        gearNotes: trim(form.gearNotes),
         clubTeams: clubText
           .split(',')
           .map(trim)
@@ -377,7 +395,22 @@ function SwimmerForm({
             <Chips options={PADDLE_SIZES} value={form.paddleSize} onChange={(v) => set('paddleSize', v)} allowNone />
           </Field>
           <Field label="Fin size">
-            <Chips options={FIN_SIZES} value={form.finSize} onChange={(v) => set('finSize', v)} allowNone />
+            <Chips options={finSizes} value={form.finSize} onChange={(v) => set('finSize', v)} allowNone />
+          </Field>
+          <Field label="Shoe size">
+            <input id="swimmer-shoeSize" className={inputClass} value={form.shoeSize} placeholder="e.g. W8.5 or 10.5" onChange={(e) => set('shoeSize', e.target.value)} />
+          </Field>
+          <Field label="Registration">
+            <Chips options={REGISTRATION} value={form.registration} onChange={(v) => set('registration', v)} allowNone />
+          </Field>
+          <Field label="Gear notes">
+            <textarea
+              id="swimmer-gearNotes"
+              className={`${inputClass} h-20 py-2`}
+              value={form.gearNotes}
+              placeholder="e.g. Already has fins & paddles"
+              onChange={(e) => set('gearNotes', e.target.value)}
+            />
           </Field>
         </FormGroup>
         <button type="submit" hidden />

@@ -4,7 +4,7 @@
 
 import { zipSync, strToU8 } from 'fflate'
 import { yearsCoaching } from './actions'
-import { sortBags, sortShopping, sortSupplies } from './closet'
+import { missingPieces, sortBags, sortShopping, sortSupplies } from './closet'
 import { describeItem, summarizeGear, teamFinSizes } from './gear'
 import { RELAY_SLOTS, type AppData } from './types'
 import { liveWorkouts, sortWorkouts, workoutBlocks, workoutTags } from './workouts'
@@ -26,7 +26,7 @@ export function backupTables(data: AppData, now = new Date()): Table[] {
     .filter((s) => !s.deleted)
     .sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
   const swimmerName = new Map(swimmers.map((s) => [s.id, `${s.firstName} ${s.lastName}`.trim()]))
-  const gear = summarizeGear(data.gear, data.swimmers, data.loans, teamFinSizes(data))
+  const gear = summarizeGear(data.gear, data.swimmers, data.loans, teamFinSizes(data), data.bags ?? [])
   const itemName = new Map(
     gear.flatMap((g) => g.lines.map((l) => [l.itemId, describeItem({ type: g.info.type, size: l.size })] as const)),
   )
@@ -57,9 +57,9 @@ export function backupTables(data: AppData, now = new Date()): Table[] {
     {
       name: 'Gear',
       rows: [
-        ['Item', 'Inventory', 'Lent out', 'Needed', 'To order'],
+        ['Item', 'Inventory', 'In bags', 'Lent out', 'Left', 'Needed', 'To order'],
         ...gear.flatMap((g) =>
-          g.lines.map((l) => [itemName.get(l.itemId) ?? l.itemId, l.inventory, l.lentOut, l.needed, l.toOrder]),
+          g.lines.map((l) => [itemName.get(l.itemId) ?? l.itemId, l.inventory, l.inBags, l.lentOut, l.available, l.needed, l.toOrder]),
         ),
       ],
     },
@@ -98,10 +98,10 @@ export function backupTables(data: AppData, now = new Date()): Table[] {
     {
       name: 'Gear bags',
       rows: [
-        ['Bag', 'Swimmer', 'Fin size', 'Fin number', 'Paddle size', 'Paddle number', 'Notes'],
+        ['Bag', 'Swimmer', 'Fin size', 'Fin number', 'Paddle size', 'Paddle number', 'Kickboard', 'Pull buoy', 'Missing', 'Notes'],
         ...sortBags(data.bags ?? []).map((b) => [
           b.number, b.swimmerId ? swimmerName.get(b.swimmerId) ?? '' : '', b.finSize, b.finNumber, b.paddleSize,
-          b.paddleNumber, b.notes,
+          b.paddleNumber, yesNo(Boolean(b.kickboard)), yesNo(Boolean(b.pullBuoy)), missingPieces(b).join(', '), b.notes,
         ]),
       ],
     },

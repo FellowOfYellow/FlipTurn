@@ -18,7 +18,7 @@ describe('backup sheet', () => {
   it('lists swimmers, gear and loans', () => {
     const tables = Object.fromEntries(backupTables(sampleData()).map((t) => [t.name, t.rows]))
     expect(tables.Swimmers[1].slice(0, 2)).toEqual(['Lopez & Co', 'Ana'])
-    expect(tables.Gear.find((r) => r[0] === 'Fins (size 9)')).toEqual(['Fins (size 9)', 2, 1, 1, 0])
+    expect(tables.Gear.find((r) => r[0] === 'Fins (size 9)')).toEqual(['Fins (size 9)', 2, 0, 1, 1, 1, 0])
     expect(tables['Lent out'][1].slice(0, 3)).toEqual(['Ana Lopez & Co', 'Fins (size 9)', 1])
   })
 

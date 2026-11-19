@@ -60,7 +60,7 @@ export interface Photo extends SyncedRecord {
   dataUrl: string
 }
 
-export type GearType = 'paddles' | 'fins' | 'gearBag' | 'kickboard'
+export type GearType = 'paddles' | 'fins' | 'gearBag' | 'kickboard' | 'pullBuoy'
 
 // One inventory line per gear type and size, e.g. "fins:9" or "kickboard".
 export interface GearItem extends SyncedRecord {
@@ -146,6 +146,9 @@ export interface GearBag extends SyncedRecord {
   finNumber: string
   paddleSize: string
   paddleNumber: string
+  // Missing on bags saved before these were added; treat as false.
+  kickboard?: boolean
+  pullBuoy?: boolean
   notes: string
 }
 

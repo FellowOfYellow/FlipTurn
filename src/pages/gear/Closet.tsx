@@ -1,15 +1,27 @@
 import { useState, type ReactNode } from 'react'
 import { Button, EmptyState, Field, Section, Sheet, inputClass } from '../../components/ui'
-import { deleteClosetRecord, newBag, newShoppingItem, newSupply, saveClosetRecord, sortBags, sortShopping, sortSupplies } from '../../data/closet'
+import {
+  deleteClosetRecord,
+  missingPieces,
+  newBag,
+  newShoppingItem,
+  newSupply,
+  overLimit,
+  roomForBag,
+  saveClosetRecord,
+  sortBags,
+  sortShopping,
+  sortSupplies,
+} from '../../data/closet'
 import { useData } from '../../data/DataProvider'
-import { teamFinSizes } from '../../data/gear'
+import { gearItemId, teamFinSizes } from '../../data/gear'
 import { PADDLE_SIZES, type GearBag, type ShoppingItem, type SupplyItem } from '../../data/types'
 
 type Draft<T> = Omit<T, 'updatedAt'>
 
 const swimmerLabel = (s: { firstName: string; lastName: string }) => `${s.firstName} ${s.lastName}`.trim()
 
-function Row({ title, detail, notes, onClick, right }: { title: string; detail?: string; notes?: string; onClick: () => void; right?: ReactNode }) {
+function Row({ title, detail, notes, missing = [], onClick, right }: { title: string; detail?: string; notes?: string; missing?: string[]; onClick: () => void; right?: ReactNode }) {
   return (
     <li className="flex items-center gap-2 rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
       {right}
@@ -17,6 +29,11 @@ function Row({ title, detail, notes, onClick, right }: { title: string; detail?:
         <span className="block font-medium">{title}</span>
         {detail && <span className="block text-sm text-slate-500">{detail}</span>}
         {notes && <span className="block whitespace-pre-wrap text-xs text-amber-800">{notes}</span>}
+        {missing.map((m) => (
+          <span key={m} className="block text-xs font-medium text-red-700">
+            {m}
+          </span>
+        ))}
       </button>
     </li>
   )
@@ -61,8 +78,27 @@ export function GearBags() {
     return `${b.number} ${who ? swimmerLabel(who) : ''} ${b.notes}`.toLowerCase().includes(query.toLowerCase())
   })
   const isNew = editing && !all.some((b) => b.id === editing.id)
+  const blocked = editing ? overLimit(data, editing) : []
+  const bagRoom = roomForBag(data, '').get('gearBag') ?? 0
+  const bagTotal = data.gear.find((g) => g.id === 'gearBag' && !g.deleted)?.quantity ?? 0
+  const missingCount = all.filter((b) => missingPieces(b).length > 0).length
   return (
-    <Section title="Gear bags" subtitle={`${all.length} numbered bag${all.length === 1 ? '' : 's'}`} action={<Button variant="secondary" onClick={() => setEditing(newBag())}>Add bag</Button>}>
+    <Section
+      title="Gear bags"
+      subtitle={`${all.length} of ${bagTotal} bag${bagTotal === 1 ? '' : 's'} packed${missingCount ? ` · ${missingCount} missing something` : ''}`}
+      action={
+        <Button variant="secondary" disabled={bagRoom < 1} onClick={() => setEditing(newBag())}>
+          Add bag
+        </Button>
+      }
+    >
+      {bagRoom < 1 && (
+        <p className="mb-3 text-sm text-slate-600">
+          {all.length > bagTotal
+            ? `${all.length} bags are listed but the Gear bags total is ${bagTotal}. Raise the total in Inventory above.`
+            : `All ${bagTotal} gear bags are in use. To add another, raise the Gear bags total in Inventory above.`}
+        </p>
+      )}
       {all.length > 6 && <input className={`${inputClass} mb-3`} placeholder="Search bag number, swimmer or notes" value={query} onChange={(e) => setQuery(e.target.value)} />}
       {all.length === 0 ? (
         <EmptyState>No gear bags yet. Add one, or import your gear spreadsheet.</EmptyState>
@@ -76,8 +112,11 @@ export function GearBags() {
               <Row
                 key={b.id}
                 title={`Bag ${b.number || '?'}${who ? ` · ${swimmerLabel(who)}` : ''}`}
-                detail={[fins && `Fins ${fins}`, paddles && `Paddles ${paddles}`].filter(Boolean).join(' · ')}
+                detail={[fins && `Fins ${fins}`, paddles && `Paddles ${paddles}`, b.kickboard && 'Kickboard', b.pullBuoy && 'Pull buoy']
+                  .filter(Boolean)
+                  .join(' · ')}
                 notes={b.notes}
+                missing={missingPieces(b)}
                 onClick={() => setEditing(b)}
               />
             )
@@ -90,6 +129,7 @@ export function GearBags() {
           onClose={() => setEditing(null)}
           footer={
             <SaveFooter
+              canSave={blocked.length === 0}
               onClose={() => setEditing(null)}
               onSave={() => update(saveClosetRecord('bags', editing))}
               onDelete={isNew ? undefined : () => update(deleteClosetRecord('bags', editing.id))}
@@ -97,6 +137,11 @@ export function GearBags() {
           }
         >
           <BagForm bag={editing} onChange={setEditing} />
+          {blocked.length > 0 && (
+            <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800">
+              Not enough {blocked.join(', ')} in Inventory. Pick something else, or raise the total in Inventory first.
+            </p>
+          )}
         </Sheet>
       )}
     </Section>
@@ -108,6 +153,27 @@ function BagForm({ bag, onChange }: { bag: Draft<GearBag>; onChange: (bag: Draft
   const set = (change: Partial<GearBag>) => onChange({ ...bag, ...change })
   const swimmers = data.swimmers.filter((s) => !s.deleted).sort((a, b) => swimmerLabel(a).localeCompare(swimmerLabel(b)))
   const finSizes = teamFinSizes(data)
+  const room = roomForBag(data, bag.id)
+  const left = (itemId: string) => Math.max(0, room.get(itemId) ?? 0)
+  const sizeOption = (type: 'fins' | 'paddles', size: string, current: string) => {
+    const n = left(gearItemId(type, size)) - (size === current ? 1 : 0)
+    return (
+      <option key={size} value={size} disabled={n < 1 && size !== current}>
+        {size} {n < 1 ? '(none left)' : `(${n} more left)`}
+      </option>
+    )
+  }
+  const check = (key: 'kickboard' | 'pullBuoy', label: string) => {
+    const on = Boolean(bag[key])
+    const n = left(key) - (on ? 1 : 0)
+    return (
+      <label className={`flex min-h-11 items-center gap-3 rounded-xl bg-slate-50 px-3 ${!on && n < 1 ? 'text-slate-400' : ''}`}>
+        <input type="checkbox" className="size-5 accent-brand-700" checked={on} disabled={!on && n < 1} onChange={(e) => set({ [key]: e.target.checked })} />
+        <span className="flex-1 font-medium">{label}</span>
+        <span className="text-xs">{n < 1 ? 'None left' : `${n} more left`}</span>
+      </label>
+    )
+  }
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
@@ -127,9 +193,7 @@ function BagForm({ bag, onChange }: { bag: Draft<GearBag>; onChange: (bag: Draft
         <Field label="Fin size">
           <select className={inputClass} value={bag.finSize} onChange={(e) => set({ finSize: e.target.value })}>
             <option value="">None</option>
-            {[...new Set([...finSizes, bag.finSize].filter(Boolean))].map((s) => (
-              <option key={s}>{s}</option>
-            ))}
+            {[...new Set([...finSizes, bag.finSize].filter(Boolean))].map((s) => sizeOption('fins', s, bag.finSize))}
           </select>
         </Field>
         <Field label="Fin number">
@@ -138,17 +202,26 @@ function BagForm({ bag, onChange }: { bag: Draft<GearBag>; onChange: (bag: Draft
         <Field label="Paddle size">
           <select className={inputClass} value={bag.paddleSize} onChange={(e) => set({ paddleSize: e.target.value })}>
             <option value="">None</option>
-            {[...new Set([...PADDLE_SIZES, bag.paddleSize].filter(Boolean))].map((s) => (
-              <option key={s}>{s}</option>
-            ))}
+            {[...new Set([...PADDLE_SIZES, bag.paddleSize].filter(Boolean))].map((s) => sizeOption('paddles', s, bag.paddleSize))}
           </select>
         </Field>
         <Field label="Paddle number">
           <input className={inputClass} value={bag.paddleNumber} onChange={(e) => set({ paddleNumber: e.target.value })} />
         </Field>
       </div>
+      <div className="grid grid-cols-2 gap-3">
+        {check('kickboard', 'Kickboard')}
+        {check('pullBuoy', 'Pull buoy')}
+      </div>
+      {missingPieces(bag).length > 0 && (
+        <div className="text-sm font-medium text-red-700">
+          {missingPieces(bag).map((m) => (
+            <div key={m}>{m}</div>
+          ))}
+        </div>
+      )}
       <Field label="Notes">
-        <textarea className={`${inputClass} h-20 py-2`} value={bag.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="e.g. Needs pull buoy" />
+        <textarea className={`${inputClass} h-20 py-2`} value={bag.notes} onChange={(e) => set({ notes: e.target.value })} />
       </Field>
     </div>
   )

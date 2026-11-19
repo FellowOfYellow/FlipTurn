@@ -23,11 +23,12 @@ const ICONS: Record<GearType, string> = {
   fins: '🦶',
   gearBag: '🎒',
   kickboard: '🟦',
+  pullBuoy: '🟡',
 }
 
 export default function GearPage() {
   const { data, update } = useData()
-  const summaries = useMemo(() => summarizeGear(data.gear, data.swimmers, data.loans, teamFinSizes(data)), [data])
+  const summaries = useMemo(() => summarizeGear(data.gear, data.swimmers, data.loans, teamFinSizes(data), data.bags ?? []), [data])
   const [editing, setEditing] = useState<GearSummary | null>(null)
   const [lending, setLending] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -71,7 +72,19 @@ export default function GearPage() {
                 <span aria-hidden>{ICONS[summary.info.type]}</span>
               </div>
               <div className="mt-1 text-3xl font-bold tabular-nums">{summary.inventory}</div>
-              {summary.lentOut > 0 && <div className="text-xs text-slate-500">{summary.lentOut} lent out</div>}
+              {(summary.lentOut > 0 || summary.inBags > 0) && (
+                <div className="text-xs text-slate-500">
+                  {[summary.inBags > 0 && `${summary.inBags} in bags`, summary.lentOut > 0 && `${summary.lentOut} lent out`].filter(Boolean).join(' · ')}
+                </div>
+              )}
+              {summary.lines.some((l) => l.available < 0) && (
+                <div className="mt-1 text-xs font-semibold text-red-700">
+                  {summary.info.sizes
+                    ? `More assigned than owned in ${summary.lines.filter((l) => l.available < 0).map((l) => l.size).join(', ')}`
+                    : `${-summary.lines[0].available} more assigned than owned`}
+                  . Raise the total.
+                </div>
+              )}
               {summary.info.sizes && <SizeBreakdown summary={summary} field="inventory" />}
             </button>
           ))}
@@ -179,20 +192,30 @@ function InventorySheet({
 }) {
   return (
     <Sheet title={`${summary.info.label} inventory`} onClose={onClose} footer={<Button className="flex-1" onClick={onClose}>Done</Button>}>
-      <p className="mb-4 text-sm text-slate-500">How many the team owns in total, including any that are lent out.</p>
+      <p className="mb-4 text-sm text-slate-500">
+        How many the team owns in total, including any that are lent out or packed in gear bags. It can’t go below what’s in use.
+      </p>
       <ul className="divide-y divide-slate-100">
         {summary.lines.map((line) => (
           <li key={line.itemId} className="flex items-center justify-between gap-3 py-2">
             <div>
               <div className="font-medium">{line.size ? `Size ${line.size}` : summary.info.label}</div>
               <div className="text-xs text-slate-500">
-                {line.needed} needed{line.lentOut > 0 ? ` · ${line.lentOut} lent out` : ''}
+                {[
+                  `${line.needed} needed`,
+                  line.inBags > 0 && `${line.inBags} in bags`,
+                  line.lentOut > 0 && `${line.lentOut} lent out`,
+                  `${Math.max(0, line.available)} left`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
               </div>
+              {line.available < 0 && <div className="text-xs font-semibold text-red-700">{-line.available} more in use than owned</div>}
             </div>
             <Stepper
               label={line.size ? `${summary.info.label} size ${line.size}` : summary.info.label}
               value={line.inventory}
-              onChange={(n) => onChange(line.itemId, n)}
+              onChange={(n) => onChange(line.itemId, Math.max(n, Math.min(line.inventory, line.inBags + line.lentOut)))}
             />
           </li>
         ))}
@@ -219,7 +242,7 @@ function LendSheet({
 
   const available = (type: GearType, size: string | null) => {
     const line = summaries.find((g) => g.info.type === type)!.lines.find((l) => l.size === size)
-    return line ? line.inventory - line.lentOut : 0
+    return line ? line.available : 0
   }
 
   const choose = (s: Swimmer) => {
@@ -287,7 +310,7 @@ function LendSheet({
             const size = picked[info.type] ?? null
             const inBin = info.sizes && !size ? null : available(info.type, size)
             // Unsized gear with none left can't be ticked; sized gear can, to pick another size.
-            const noneAtAll = info.sizes ? lines.every((l) => l.inventory - l.lentOut <= 0) : inBin === 0
+            const noneAtAll = info.sizes ? lines.every((l) => l.available <= 0) : inBin === 0
             return (
               <li key={info.type} className="rounded-2xl p-3 ring-1 ring-slate-200">
                 <label className="flex min-h-11 items-center gap-3">

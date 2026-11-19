@@ -212,6 +212,8 @@ export function readGearWorkbook(sheets: Sheet[], data: AppData, fileName = 'spr
           finNumber: take('finnumber'),
           paddleSize: take('paddlesize'),
           paddleNumber: take('paddlenumber'),
+          kickboard: false,
+          pullBuoy: false,
           notes: notes.filter(Boolean).join('\n'),
         })
       }

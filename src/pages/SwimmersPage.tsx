@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Avatar, Button, Chips, EmptyState, Field, PageHeader, PhotoField, Section, Sheet, inputClass } from '../components/ui'
 import { deleteSwimmer, newId, photoFor, saveSwimmer, setPhoto, today } from '../data/actions'
+import { missingPieces } from '../data/closet'
 import { competitionHistory, focusStrokes } from '../data/competitions'
 import { useData } from '../data/DataProvider'
 import { describeItem, openLoans, teamFinSizes } from '../data/gear'
@@ -66,6 +67,7 @@ export default function SwimmersPage() {
                     <span className="block text-xs text-slate-500">
                       {[s.grade, !s.active && 'Inactive'].filter(Boolean).join(' · ') || 'No grade set'}
                     </span>
+                    {s.gearNotes && <span className="block whitespace-pre-wrap text-xs text-amber-800">{s.gearNotes}</span>}
                   </span>
                   <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700">{s.level}</span>
                 </button>
@@ -178,16 +180,26 @@ function SwimmerProfile({ swimmer: s, onEdit, onClose }: { swimmer: Swimmer; onE
           Paddles {s.paddleSize ?? '—'} · Fins {s.finSize ?? '—'} · Shoes {s.shoeSize || '—'}
         </ProfileRow>
         <ProfileRow label="Registration">{s.registration ?? <span className="text-slate-500">Not set</span>}</ProfileRow>
-        {(s.gearNotes || bags.length > 0) && (
-          <ProfileRow label="Gear notes and bags">
+        <ProfileRow label="Notes">
+          {s.gearNotes ? <div className="whitespace-pre-wrap">{s.gearNotes}</div> : <span className="text-slate-500">None</span>}
+        </ProfileRow>
+        {bags.length > 0 && (
+          <ProfileRow label={bags.length === 1 ? 'Gear bag' : 'Gear bags'}>
             {bags.map((b) => (
-              <div key={b.id}>
-                Bag {b.number}
-                {b.finNumber && ` · fins #${b.finNumber}`}
-                {b.paddleNumber && ` · paddles #${b.paddleNumber}`}
+              <div key={b.id} className="mb-1">
+                <div>
+                  Bag {b.number}
+                  {b.finNumber && ` · fins #${b.finNumber}`}
+                  {b.paddleNumber && ` · paddles #${b.paddleNumber}`}
+                </div>
+                {b.notes && <div className="whitespace-pre-wrap text-xs text-amber-800">{b.notes}</div>}
+                {missingPieces(b).map((m) => (
+                  <div key={m} className="text-xs font-medium text-red-700">
+                    {m}
+                  </div>
+                ))}
               </div>
             ))}
-            {s.gearNotes && <div className="whitespace-pre-wrap">{s.gearNotes}</div>}
           </ProfileRow>
         )}
         <ProfileRow label="Gear they have">
@@ -403,7 +415,7 @@ function SwimmerForm({
           <Field label="Registration">
             <Chips options={REGISTRATION} value={form.registration} onChange={(v) => set('registration', v)} allowNone />
           </Field>
-          <Field label="Gear notes">
+          <Field label="Notes">
             <textarea
               id="swimmer-gearNotes"
               className={`${inputClass} h-20 py-2`}

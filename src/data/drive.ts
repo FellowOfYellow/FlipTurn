@@ -1,4 +1,5 @@
 import { mergeData } from './merge'
+import { BACKUP_NAME, SHEET_MIME, XLSX_MIME, backupTables, buildXlsx } from './sheetBackup'
 import type { AppData, Collection } from './types'
 
 const API = 'https://www.googleapis.com/drive/v3'
@@ -47,6 +48,9 @@ export class DriveClient {
   private fileIds = new Map<string, string>()
   // What each file held when last read or written, so unchanged files are skipped.
   private lastSeen = new Map<string, string>()
+  // What the backup sheet was last written with, minus its timestamp.
+  private lastBackup: string | null = null
+  backupError: string | null = null
 
   constructor(token: string) {
     this.token = token
@@ -97,6 +101,7 @@ export class DriveClient {
     this.ownsFolder = true
     this.fileIds.clear()
     this.lastSeen.clear()
+    this.lastBackup = null
     for (const name of Object.keys(FILES)) await this.writeFile(name, fileContents(data, name))
     for (const name of RESERVED_FILES) await this.writeFile(name, JSON.stringify({ version: 1 }))
     return this.folderId
@@ -108,6 +113,7 @@ export class DriveClient {
     if (this.folderId !== folderId) {
       this.fileIds.clear()
       this.lastSeen.clear()
+      this.lastBackup = null
     }
     this.folderId = folderId
     const meta = await this.request(`${API}/files/${folderId}?fields=ownedByMe`)
@@ -156,7 +162,49 @@ export class DriveClient {
       if (!this.fileIds.has(name) && !this.ownsFolder) continue
       if (this.lastSeen.get(name) !== body) await this.writeFile(name, body)
     }
+    await this.writeBackup(merged)
     return merged
+  }
+
+  // Keeps the read-only Google Sheet copy current. A failure here never stops
+  // the sync itself; it's reported through backupError instead.
+  async writeBackup(data: AppData): Promise<void> {
+    const tables = backupTables(data)
+    const signature = JSON.stringify(tables.filter((t) => t.name !== 'About'))
+    if (signature === this.lastBackup) return
+    const id = this.fileIds.get(BACKUP_NAME)
+    // Only the owner creates it, like the other files; an assistant coach
+    // updates it once they can see it.
+    if (!id && !this.ownsFolder) return
+    const xlsx = buildXlsx(tables) as Uint8Array<ArrayBuffer>
+    try {
+      if (id) {
+        await this.request(`${UPLOAD}/files/${id}?uploadType=media`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': XLSX_MIME },
+          body: xlsx,
+        })
+      } else {
+        const boundary = `flipturn${Math.random().toString(36).slice(2)}`
+        const metadata = { name: BACKUP_NAME, parents: [this.folderId], mimeType: SHEET_MIME }
+        const body = new Blob([
+          `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`,
+          `--${boundary}\r\nContent-Type: ${XLSX_MIME}\r\n\r\n`,
+          xlsx,
+          `\r\n--${boundary}--`,
+        ])
+        const response = await this.request(`${UPLOAD}/files?uploadType=multipart&fields=id`, {
+          method: 'POST',
+          headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+          body,
+        })
+        this.fileIds.set(BACKUP_NAME, ((await response.json()) as { id: string }).id)
+      }
+      this.lastBackup = signature
+      this.backupError = null
+    } catch (e) {
+      this.backupError = (e as Error).message
+    }
   }
 
   private async writeFile(name: string, body: string): Promise<void> {

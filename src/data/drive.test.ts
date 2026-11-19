@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { saveSwimmer } from './actions'
 import { DriveClient, FILES, fileContents } from './drive'
+import { BACKUP_NAME } from './sheetBackup'
 import { emptyData } from './localStore'
 import { withSwimmerDefaults } from './merge'
 
@@ -11,9 +12,10 @@ function fakeDrive({ ownedByMe, files }: { ownedByMe: boolean; files: Record<str
   const fetchMock = vi.fn(async (url: string, init: RequestInit = {}) => {
     const u = new URL(url)
     const json = (body: unknown) => new Response(JSON.stringify(body))
+    const text = init.body instanceof Blob ? await init.body.text() : String(init.body)
     if (u.pathname.endsWith('/files') && init.method === 'POST') {
       const id = `id${store.size}`
-      const name = /"name":"([^"]+)"/.exec(String(init.body))![1]
+      const name = /"name":"([^"]+)"/.exec(text)![1]
       store.set(id, { name, body: '' })
       uploads.push(`create ${name}`)
       return json({ id })
@@ -23,7 +25,7 @@ function fakeDrive({ ownedByMe, files }: { ownedByMe: boolean; files: Record<str
     }
     const id = u.pathname.split('/').pop()!
     if (init.method === 'PATCH') {
-      store.get(id)!.body = String(init.body)
+      store.get(id)!.body = text
       uploads.push(`update ${store.get(id)!.name}`)
       return json({})
     }
@@ -41,6 +43,7 @@ function allFiles(data = emptyData()) {
     ...Object.fromEntries(Object.keys(FILES).map((name) => [name, fileContents(data, name)])),
     'competitions.json': '{"version":1}',
     'workouts.json': '{"version":1}',
+    [BACKUP_NAME]: '',
   }
 }
 
@@ -51,7 +54,7 @@ describe('DriveClient', () => {
     expect(await drive.openTeamFolder('folder')).toEqual([])
     const local = saveSwimmer(withSwimmerDefaults({ id: 's1', updatedAt: 0, firstName: 'Ana', lastName: 'Lopez' }))(emptyData())
     await drive.push(local)
-    expect(uploads).toEqual(['update swimmers.json'])
+    expect(uploads).toEqual(['update swimmers.json', `update ${BACKUP_NAME}`])
     uploads.length = 0
     await drive.push(local)
     expect(uploads).toEqual([])
@@ -75,5 +78,28 @@ describe('DriveClient', () => {
     expect(uploads).toContain('create coaches.json')
     expect(uploads).toContain('create photos.json')
     expect(uploads).toContain('create workouts.json')
+  })
+  it('creates the backup sheet for the owner, and only rewrites it when data changes', async () => {
+    const files = allFiles()
+    delete (files as Record<string, string>)[BACKUP_NAME]
+    const { uploads } = fakeDrive({ ownedByMe: true, files })
+    const drive = new DriveClient('token')
+    await drive.openTeamFolder('folder')
+    await drive.push(emptyData())
+    expect(uploads).toEqual([`create ${BACKUP_NAME}`])
+    uploads.length = 0
+    await drive.push(emptyData())
+    expect(uploads).toEqual([])
+    expect(drive.backupError).toBeNull()
+  })
+
+  it("never creates the backup sheet for an assistant coach", async () => {
+    const files = allFiles()
+    delete (files as Record<string, string>)[BACKUP_NAME]
+    const { uploads } = fakeDrive({ ownedByMe: false, files })
+    const drive = new DriveClient('token')
+    await drive.openTeamFolder('folder')
+    await drive.push(emptyData())
+    expect(uploads).toEqual([])
   })
 })

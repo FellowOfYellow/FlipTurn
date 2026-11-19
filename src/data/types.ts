@@ -96,6 +96,32 @@ export interface Competition extends SyncedRecord {
   events: MeetEvent[]
 }
 
+export type BlockKind = 'warmup' | 'set' | 'cooldown'
+
+// A reusable piece of a workout. Its tags are worked out from the text, plus
+// any the coach added by hand, minus any they removed by hand.
+export interface WorkoutBlock extends SyncedRecord {
+  kind: BlockKind
+  text: string
+  addedTags: string[]
+  removedTags: string[]
+  createdOn: string
+}
+
+export interface Workout extends SyncedRecord {
+  name: string
+  date: string | null
+  warmupId: string | null
+  setIds: string[]
+  cooldownId: string | null
+}
+
+// A tag the coach made, with the words that switch it on.
+export interface CustomTag extends SyncedRecord {
+  name: string
+  keywords: string[]
+}
+
 export interface TeamSettings extends SyncedRecord {
   schoolName: string
 }
@@ -108,6 +134,9 @@ export interface AppData {
   loans: GearLoan[]
   photos: Photo[]
   competitions: Competition[]
+  workouts: Workout[]
+  blocks: WorkoutBlock[]
+  tags: CustomTag[]
 }
 
 export type Collection = keyof AppData

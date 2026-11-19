@@ -4,6 +4,7 @@ import { lendGear, saveSwimmer, setGearQuantity } from './actions'
 import { emptyData } from './localStore'
 import { withSwimmerDefaults } from './merge'
 import { backupTables, buildXlsx } from './sheetBackup'
+import { newBlock, newWorkout, saveWorkout } from './workouts'
 
 function sampleData() {
   let data = emptyData()
@@ -29,5 +30,12 @@ describe('backup sheet', () => {
     const swimmers = strFromU8(files['xl/worksheets/sheet1.xml'])
     expect(swimmers).toContain('Lopez &amp; Co')
     expect(swimmers).not.toContain('Lopez & Co')
+  })
+
+  it('lists workouts with their pieces and tags', () => {
+    const set = newBlock('set', '8x50 fly')
+    const data = saveWorkout({ ...newWorkout(), name: 'Monday', date: '2026-11-16', setIds: [set.id] }, [set])(emptyData())
+    const rows = Object.fromEntries(backupTables(data).map((t) => [t.name, t.rows])).Workouts
+    expect(rows[1]).toEqual(['Monday', '2026-11-16', 'Butterfly, Sprint', '', '8x50 fly', ''])
   })
 })

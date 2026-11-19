@@ -14,6 +14,9 @@ export function emptyData(): AppData {
     loans: [],
     photos: [],
     competitions: [],
+    workouts: [],
+    blocks: [],
+    tags: [],
   }
 }
 

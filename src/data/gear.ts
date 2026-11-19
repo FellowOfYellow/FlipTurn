@@ -2,6 +2,7 @@ import {
   FIN_SIZES,
   PADDLE_SIZES,
   type AppData,
+  type GearBag,
   type GearItem,
   type GearLoan,
   type GearType,
@@ -36,6 +37,7 @@ export const GEAR_TYPES: GearTypeInfo[] = [
   },
   { type: 'gearBag', label: 'Gear bags', singular: 'Gear bag', sizes: null },
   { type: 'kickboard', label: 'Kickboards', singular: 'Kickboard', sizes: null },
+  { type: 'pullBuoy', label: 'Pull buoys', singular: 'Pull buoy', sizes: null },
 ]
 
 export function teamFinSizes(data: Pick<AppData, 'team'>): string[] {
@@ -81,6 +83,11 @@ export interface SizeLine {
   size: string | null
   inventory: number
   lentOut: number
+  // Packed in gear bags (or, for gear bags, the bags themselves).
+  inBags: number
+  // Left in the closet: inventory minus lent out minus in bags. Below zero
+  // means more is assigned than the team owns.
+  available: number
   needed: number
   toOrder: number
 }
@@ -90,9 +97,26 @@ export interface GearSummary {
   lines: SizeLine[]
   inventory: number
   lentOut: number
+  inBags: number
   toOrder: number
   // Active swimmers with no size recorded, so they can't be counted for a size.
   missingSize: number
+}
+
+// How many of each inventory line the gear bags use: one gear bag per bag,
+// plus the fins, paddles, kickboard and pull buoy packed in it.
+export function bagUsage(bags: Pick<GearBag, 'deleted' | 'finSize' | 'paddleSize' | 'kickboard' | 'pullBuoy'>[]): Map<string, number> {
+  const used = new Map<string, number>()
+  const add = (id: string) => used.set(id, (used.get(id) ?? 0) + 1)
+  for (const bag of bags) {
+    if (bag.deleted) continue
+    add('gearBag')
+    if (bag.finSize) add(gearItemId('fins', bag.finSize))
+    if (bag.paddleSize) add(gearItemId('paddles', bag.paddleSize))
+    if (bag.kickboard) add('kickboard')
+    if (bag.pullBuoy) add('pullBuoy')
+  }
+  return used
 }
 
 export function activeSwimmers(swimmers: Swimmer[]): Swimmer[] {
@@ -111,7 +135,9 @@ export function summarizeGear(
   swimmers: Swimmer[],
   loans: GearLoan[],
   finSizes: readonly string[] = FIN_SIZES,
+  bags: GearBag[] = [],
 ): GearSummary[] {
+  const packed = bagUsage(bags)
   const active = activeSwimmers(swimmers)
   const lent = new Map<string, number>()
   for (const loan of openLoans(loans)) {
@@ -132,22 +158,27 @@ export function summarizeGear(
           ? active.length
           : active.filter((s) => info.swimmerSize?.(s) === size).length
       const inventory = quantity.get(itemId) ?? 0
+      const lentOut = lent.get(itemId) ?? 0
+      const inBags = packed.get(itemId) ?? 0
       return {
         itemId,
         size,
         inventory,
-        lentOut: lent.get(itemId) ?? 0,
+        lentOut,
+        inBags,
+        available: inventory - lentOut - inBags,
         needed,
         toOrder: Math.max(0, needed - inventory),
       }
     })
-    const sum = (key: 'inventory' | 'lentOut' | 'toOrder') =>
+    const sum = (key: 'inventory' | 'lentOut' | 'inBags' | 'toOrder') =>
       lines.reduce((total, line) => total + line[key], 0)
     return {
       info,
       lines,
       inventory: sum('inventory'),
       lentOut: sum('lentOut'),
+      inBags: sum('inBags'),
       toOrder: sum('toOrder'),
       missingSize: info.swimmerSize
         ? active.filter((s) => info.swimmerSize!(s) === null).length

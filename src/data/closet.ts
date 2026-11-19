@@ -1,3 +1,4 @@
+import { bagUsage, summarizeGear, teamFinSizes } from './gear'
 import type { AppData, GearBag, ShoppingItem, SupplyItem } from './types'
 
 // Gear bags, other supplies and the shopping list: simple saves and deletes
@@ -24,7 +25,7 @@ export const deleteClosetRecord =
   })
 
 export function newBag(): Draft<GearBag> {
-  return { id: crypto.randomUUID(), number: '', swimmerId: null, finSize: '', finNumber: '', paddleSize: '', paddleNumber: '', notes: '' }
+  return { id: crypto.randomUUID(), number: '', swimmerId: null, finSize: '', finNumber: '', paddleSize: '', paddleNumber: '', kickboard: false, pullBuoy: false, notes: '' }
 }
 
 export function newSupply(): Draft<SupplyItem> {
@@ -49,4 +50,42 @@ export function sortSupplies(items: SupplyItem[]): SupplyItem[] {
 // Still to buy first, then bought.
 export function sortShopping(items: ShoppingItem[]): ShoppingItem[] {
   return items.filter((i) => !i.deleted).sort((a, b) => Number(a.done) - Number(b.done) || a.item.localeCompare(b.item))
+}
+
+// What a bag is missing, worded like the coaches' own notes ("Needs pull
+// buoy"). Skips anything the bag's notes already say.
+export function missingPieces(bag: Pick<GearBag, 'finSize' | 'paddleSize' | 'kickboard' | 'pullBuoy' | 'notes'>): string[] {
+  const missing = [
+    !bag.finSize && 'Needs fins',
+    !bag.paddleSize && 'Needs paddles',
+    !bag.kickboard && 'Needs kickboard',
+    !bag.pullBuoy && 'Needs pull buoy',
+  ].filter((m): m is string => Boolean(m))
+  const notes = bag.notes.toLowerCase()
+  return missing.filter((m) => !notes.includes(m.toLowerCase()))
+}
+
+// How many of each inventory line are free for one bag: what's left in the
+// closet with every other bag counted, so a bag can keep what it already has.
+export function roomForBag(data: AppData, bagId: string): Map<string, number> {
+  const others = (data.bags ?? []).filter((b) => b.id !== bagId)
+  const room = new Map<string, number>()
+  for (const summary of summarizeGear(data.gear, data.swimmers, data.loans, teamFinSizes(data), others)) {
+    for (const line of summary.lines) room.set(line.itemId, line.available)
+  }
+  return room
+}
+
+// The pieces this bag would take that the team doesn't have free.
+export function overLimit(data: AppData, bag: Omit<GearBag, 'updatedAt'>): string[] {
+  const room = roomForBag(data, bag.id)
+  const over: string[] = []
+  for (const itemId of bagUsage([bag]).keys()) {
+    if ((room.get(itemId) ?? 0) < 1) {
+      const [type, size] = itemId.split(':')
+      const label = { gearBag: 'gear bags', fins: 'fins', paddles: 'paddles', kickboard: 'kickboards', pullBuoy: 'pull buoys' }[type] ?? type
+      over.push(size ? `${label} in size ${size}` : label)
+    }
+  }
+  return over
 }

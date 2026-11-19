@@ -17,6 +17,7 @@ export const FILES: Record<string, Collection[]> = {
   'photos.json': ['photos'],
   'competitions.json': ['competitions'],
   'workouts.json': ['workouts', 'blocks', 'tags'],
+  'closet.json': ['bags', 'supplies', 'shopping'],
 }
 
 // Files later phases fill in. They're created with the team so an assistant

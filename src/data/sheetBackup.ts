@@ -5,7 +5,7 @@
 import { zipSync, strToU8 } from 'fflate'
 import { yearsCoaching } from './actions'
 import { describeItem, summarizeGear } from './gear'
-import type { AppData } from './types'
+import { RELAY_SLOTS, type AppData } from './types'
 
 export const BACKUP_NAME = 'FlipTurn data (read only)'
 export const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -70,6 +70,27 @@ export function backupTables(data: AppData, now = new Date()): Table[] {
           .sort((a, b) => Number(Boolean(a.returnedOn)) - Number(Boolean(b.returnedOn)) || b.lentOn.localeCompare(a.lentOn))
           .map((l) => [swimmerName.get(l.swimmerId) ?? 'Removed swimmer', itemName.get(l.itemId) ?? l.itemId, l.quantity,
             l.lentOn, l.returnedOn ?? '']),
+      ],
+    },
+    {
+      name: 'Meets',
+      rows: [
+        ['Meet', 'Date', 'Location', 'Event', 'Type', 'Swimmers'],
+        ...data.competitions
+          .filter((c) => !c.deleted)
+          .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
+          .flatMap((c) =>
+            c.events.map((e) => [
+              c.name,
+              c.date ?? '',
+              c.location,
+              e.name,
+              e.kind === 'relay' ? 'Relay' : 'Individual',
+              e.kind === 'relay'
+                ? e.entries.map((sid, i) => (sid ? `${RELAY_SLOTS[i]} ${swimmerName.get(sid) ?? 'Removed swimmer'}` : '')).filter(Boolean).join(', ')
+                : e.entries.map((sid) => swimmerName.get(sid) ?? 'Removed swimmer').join(', '),
+            ]),
+          ),
       ],
     },
     {

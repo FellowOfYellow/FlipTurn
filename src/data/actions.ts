@@ -1,5 +1,5 @@
 import { scrubDeletedSwimmer } from './merge'
-import type { AppData, Coach, GearLoan, Swimmer } from './types'
+import type { AppData, Coach, Competition, GearLoan, Swimmer } from './types'
 
 // Pure updates passed to update(); each stamps updatedAt so sync can merge.
 
@@ -38,8 +38,25 @@ export const deleteSwimmer =
       loans: data.loans.map((l) =>
         l.swimmerId === id && !l.returnedOn ? { ...l, deleted: true, updatedAt: now } : l,
       ),
+      // And out of every meet, so no lineup points at a removed swimmer.
+      competitions: data.competitions.map((c) =>
+        c.swimmerIds.includes(id) || c.events.some((e) => e.entries.includes(id))
+          ? { ...removeFromCompetition(c, id), updatedAt: now }
+          : c,
+      ),
     }
   }
+
+function removeFromCompetition(c: Competition, swimmerId: string): Competition {
+  return {
+    ...c,
+    swimmerIds: c.swimmerIds.filter((s) => s !== swimmerId),
+    events: c.events.map((e) => ({
+      ...e,
+      entries: e.kind === 'relay' ? e.entries.map((s) => (s === swimmerId ? '' : s)) : e.entries.filter((s) => s !== swimmerId),
+    })),
+  }
+}
 
 export const setGearQuantity =
   (itemId: string, quantity: number) =>

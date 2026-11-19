@@ -1,6 +1,9 @@
 import { HashRouter, Link, MemoryRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom'
 import { DataProvider, useData, wasSignedIn } from './data/DataProvider'
 import ComingSoon from './pages/ComingSoon'
+import CompetitionDetail from './pages/competitions/CompetitionDetail'
+import CompetitionEditor from './pages/competitions/CompetitionEditor'
+import CompetitionsPage from './pages/competitions/CompetitionsPage'
 import GearPage from './pages/GearPage'
 import ProfilePage from './pages/ProfilePage'
 import SwimmersPage from './pages/SwimmersPage'
@@ -20,8 +23,8 @@ export default function App() {
   return (
     <DataProvider>
       <Router initialEntries={['/gear']}>
-        <div className="md:flex">
-          <nav className="hidden md:sticky md:top-0 md:flex md:h-dvh md:w-56 md:shrink-0 md:flex-col md:border-r md:border-slate-200 md:bg-white md:p-4 md:pt-[max(1rem,env(safe-area-inset-top))]">
+        <div className="wide:flex">
+          <nav className="hidden wide:sticky wide:top-0 wide:flex wide:h-dvh wide:w-56 wide:shrink-0 wide:flex-col wide:border-r wide:border-slate-200 wide:bg-white wide:p-4 wide:pt-[max(1rem,env(safe-area-inset-top))]">
             <div className="mb-6 px-3 text-xl font-bold text-brand-700">FlipTurn</div>
             {TABS.map((tab) => (
               <NavLink
@@ -36,18 +39,14 @@ export default function App() {
               </NavLink>
             ))}
           </nav>
-          <main className="min-w-0 flex-1 pt-[env(safe-area-inset-top)] pb-24 md:pb-8">
+          <main className="min-w-0 flex-1 pt-[env(safe-area-inset-top)] pb-24 wide:pb-8">
             <SyncBanner />
             <Routes>
               <Route path="/gear" element={<GearPage />} />
-              <Route
-                path="/competitions"
-                element={
-                  <ComingSoon title="Competitions" phase={3}>
-                    Create meets, upload the event list, and build relays and individual entries from your active swimmers.
-                  </ComingSoon>
-                }
-              />
+              <Route path="/competitions" element={<CompetitionsPage />} />
+              <Route path="/competitions/new" element={<CompetitionEditor />} />
+              <Route path="/competitions/:id" element={<CompetitionDetail />} />
+              <Route path="/competitions/:id/edit" element={<CompetitionEditor key="edit" />} />
               <Route path="/swimmers" element={<SwimmersPage />} />
               <Route
                 path="/workouts"
@@ -61,7 +60,7 @@ export default function App() {
               <Route path="*" element={<Navigate to="/gear" replace />} />
             </Routes>
           </main>
-          <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+          <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur wide:hidden">
             {TABS.map((tab) => (
               <NavLink
                 key={tab.to}

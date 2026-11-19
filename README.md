@@ -1,7 +1,7 @@
 # FlipTurn
 
 A swim team app for high school coaches: gear inventory and lending, a swimmer
-roster, and (in later phases) competition relays and workouts. Team data is
+roster, competition lineups with relays, and (in a later phase) workouts. Team data is
 stored as JSON files in a **FlipTurn** folder in the head coach's Google Drive.
 
 ## Run it locally
@@ -62,7 +62,8 @@ In the app, sign-in uses Google's native iOS sign-in. Drive access is shared acr
 | `swimmers.json` | roster and swimmer profiles |
 | `gear-loans.json` | gear lent to swimmers |
 | `photos.json` | swimmer and coach photos (320px JPEG) |
-| `competitions.json`, `workouts.json` | reserved for later phases |
+| `competitions.json` | meets, their events, relay slots (A1–C4) and individual entries |
+| `workouts.json` | reserved for a later phase |
 | `FlipTurn data (read only)` | Google Sheet copy of everything above except photos |
 
 FlipTurn uses the `drive.file` scope, so it only sees files it created or that
@@ -90,4 +91,7 @@ it once it can see it (it's covered when they pick the folder's files).
 
 See the implementation plan. Phase 1 covers the foundation, a basic roster
 with paddle and fin sizes, and the Gear page. Phase 2 adds the team folder
-setup (start or join), full swimmer profiles, and coach profiles.
+setup (start or join), full swimmer profiles, and coach profiles. Phase 3
+adds competitions: meets with events typed in or read from an uploaded meet
+sheet (PDF, Word, Excel, CSV or text; diving is skipped), the relay grid with
+slots A1–C4, individual entries, I/R badges, and focus strokes on profiles.

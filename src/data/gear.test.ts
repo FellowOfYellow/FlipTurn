@@ -2,20 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { lendGear, returnLoan, saveSwimmer, setGearQuantity } from './actions'
 import { orderListText, summarizeGear } from './gear'
 import { emptyData } from './localStore'
-import { mergeRecords } from './merge'
+import { mergeRecords, withSwimmerDefaults } from './merge'
 import type { AppData, Swimmer } from './types'
 
 function swimmer(id: string, overrides: Partial<Swimmer> = {}): Omit<Swimmer, 'updatedAt'> {
-  return {
-    id,
-    firstName: id,
-    lastName: 'Test',
-    level: 'Varsity',
-    active: true,
-    paddleSize: 'M',
-    finSize: '9',
-    ...overrides,
-  }
+  return withSwimmerDefaults({ id, updatedAt: 0, firstName: id, lastName: 'Test', paddleSize: 'M', finSize: '9', ...overrides })
 }
 
 function build(...changes: ((d: AppData) => AppData)[]): AppData {

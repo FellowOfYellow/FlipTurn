@@ -54,10 +54,14 @@ export function sortShopping(items: ShoppingItem[]): ShoppingItem[] {
 
 // What a bag is missing, worded like the coaches' own notes ("Needs pull
 // buoy"). Skips anything the bag's notes already say.
-export function missingPieces(bag: Pick<GearBag, 'finSize' | 'paddleSize' | 'kickboard' | 'pullBuoy' | 'notes'>): string[] {
+export function missingPieces(
+  bag: Pick<GearBag, 'finSize' | 'paddleSize' | 'kickboard' | 'pullBuoy' | 'notes'> & Partial<Pick<GearBag, 'finNumber' | 'paddleNumber'>>,
+): string[] {
   const missing = [
     !bag.finSize && 'Needs fins',
+    bag.finSize && !bag.finNumber?.trim() && 'Missing fin number',
     !bag.paddleSize && 'Needs paddles',
+    bag.paddleSize && !bag.paddleNumber?.trim() && 'Missing paddle number',
     !bag.kickboard && 'Needs kickboard',
     !bag.pullBuoy && 'Needs pull buoy',
   ].filter((m): m is string => Boolean(m))

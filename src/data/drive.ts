@@ -15,11 +15,12 @@ export const FILES: Record<string, Collection[]> = {
   'swimmers.json': ['swimmers'],
   'gear-loans.json': ['loans'],
   'photos.json': ['photos'],
+  'competitions.json': ['competitions'],
 }
 
 // Files later phases fill in. They're created with the team so an assistant
 // coach who picked the folder's files already has access to them.
-const RESERVED_FILES = ['competitions.json', 'workouts.json']
+const RESERVED_FILES = ['workouts.json']
 
 export interface DriveUser {
   name: string

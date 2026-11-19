@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Avatar, Button, Chips, EmptyState, Field, PageHeader, PhotoField, Section, Sheet, inputClass } from '../components/ui'
 import { deleteSwimmer, newId, photoFor, saveSwimmer, setPhoto, today } from '../data/actions'
+import { competitionHistory, focusStrokes } from '../data/competitions'
 import { useData } from '../data/DataProvider'
 import { describeItem, openLoans } from '../data/gear'
 import { withSwimmerDefaults } from '../data/merge'
@@ -106,6 +107,8 @@ function SwimmerProfile({ swimmer: s, onEdit, onClose }: { swimmer: Swimmer; onE
   const { data } = useData()
   const gearById = new Map(data.gear.map((g) => [g.id, g]))
   const holding = openLoans(data.loans).filter((l) => l.swimmerId === s.id)
+  const strokes = focusStrokes(data, s.id)
+  const history = competitionHistory(data, s.id)
 
   return (
     <Sheet
@@ -132,7 +135,17 @@ function SwimmerProfile({ swimmer: s, onEdit, onClose }: { swimmer: Swimmer; onE
 
       <dl className="space-y-4">
         <ProfileRow label="Focus strokes">
-          <span className="text-slate-500">Filled in from competition entries once Competitions arrive.</span>
+          {strokes.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {strokes.map(({ stroke, count }) => (
+                <span key={stroke} className="rounded-lg bg-brand-50 px-2 py-1 text-sm font-medium text-brand-900">
+                  {stroke} <span className="text-brand-700/70">×{count}</span>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <span className="text-slate-500">Fills in once they're entered in competition events</span>
+          )}
         </ProfileRow>
         <ProfileRow label="Contact">
           <ContactLines phone={s.phone} email={s.email} />
@@ -171,6 +184,23 @@ function SwimmerProfile({ swimmer: s, onEdit, onClose }: { swimmer: Swimmer; onE
             })
           ) : (
             <span className="text-slate-500">Nothing lent out</span>
+          )}
+        </ProfileRow>
+        <ProfileRow label="Competitions">
+          {history.length > 0 ? (
+            <ul className="space-y-2">
+              {history.map(({ competition: c, events }) => (
+                <li key={c.id}>
+                  <div className="font-medium">
+                    {c.name || 'Untitled meet'}
+                    {c.date && <span className="font-normal text-slate-500"> · {formatLongDate(c.date)}</span>}
+                  </div>
+                  <div className="text-slate-600">{events.map((e) => e.name || 'Unnamed event').join(', ')}</div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <span className="text-slate-500">Not entered in any competitions yet</span>
           )}
         </ProfileRow>
       </dl>

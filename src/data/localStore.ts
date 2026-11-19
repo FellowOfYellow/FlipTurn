@@ -13,6 +13,7 @@ export function emptyData(): AppData {
     gear: defaultGearItems(0),
     loans: [],
     photos: [],
+    competitions: [],
   }
 }
 

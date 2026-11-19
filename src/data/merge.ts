@@ -1,6 +1,6 @@
 import type { AppData, Collection, Swimmer, SyncedRecord } from './types'
 
-export const COLLECTIONS: Collection[] = ['team', 'coaches', 'swimmers', 'gear', 'loans', 'photos']
+export const COLLECTIONS: Collection[] = ['team', 'coaches', 'swimmers', 'gear', 'loans', 'photos', 'competitions']
 
 // Union of two copies of a collection; for the same id the newer edit wins.
 export function mergeRecords<T extends SyncedRecord>(a: T[], b: T[]): T[] {
@@ -22,6 +22,7 @@ export function mergeData(a: AppData, b: Partial<AppData>): AppData {
     gear: mergeRecords(a.gear, b.gear ?? []),
     loans: mergeRecords(a.loans, b.loans ?? []),
     photos: mergeRecords(a.photos, b.photos ?? []),
+    competitions: mergeRecords(a.competitions ?? [], b.competitions ?? []),
   }
 }
 

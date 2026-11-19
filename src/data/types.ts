@@ -69,6 +69,33 @@ export interface GearLoan extends SyncedRecord {
   returnedOn: string | null
 }
 
+export const STROKES = ['Free', 'Back', 'Breast', 'Fly', 'IM', 'Medley'] as const
+export type Stroke = (typeof STROKES)[number]
+export type EventKind = 'relay' | 'individual'
+
+// A relay holds 12 slots, A1 to C4; an empty slot is ''.
+export const RELAY_SLOTS = ['A1', 'A2', 'A3', 'A4', 'B1', 'B2', 'B3', 'B4', 'C1', 'C2', 'C3', 'C4'] as const
+
+export interface MeetEvent {
+  id: string
+  name: string
+  kind: EventKind
+  stroke: Stroke | null
+  distance: number | null
+  // Relay: 12 swimmer ids in slot order ('' when empty). Individual: entrant ids.
+  entries: string[]
+}
+
+// Events live inside their competition, so a meet syncs as one record.
+export interface Competition extends SyncedRecord {
+  name: string
+  date: string | null
+  location: string
+  swimmerIds: string[]
+  // In meet order. Relays are shown first, then individual events.
+  events: MeetEvent[]
+}
+
 export interface TeamSettings extends SyncedRecord {
   schoolName: string
 }
@@ -80,6 +107,7 @@ export interface AppData {
   gear: GearItem[]
   loans: GearLoan[]
   photos: Photo[]
+  competitions: Competition[]
 }
 
 export type Collection = keyof AppData

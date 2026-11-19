@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Side bar layout: tablets and laptops, but not phones turned sideways. */
+@custom-variant wide (@media (min-width: 768px) and (min-height: 500px));
+
 @theme {
   --color-brand-50: #f0f9ff;
   --color-brand-100: #e0f2fe;

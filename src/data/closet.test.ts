@@ -41,10 +41,14 @@ describe('gear bags and inventory limits', () => {
   })
 
   it('lists what a bag is missing, skipping what its notes already say', () => {
-    expect(missingPieces({ finSize: '9', paddleSize: '', kickboard: false, pullBuoy: false, notes: 'Needs pull buoy' })).toEqual([
+    expect(missingPieces({ finSize: '9', finNumber: '1', paddleSize: '', kickboard: false, pullBuoy: false, notes: 'Needs pull buoy' })).toEqual([
       'Needs paddles',
       'Needs kickboard',
     ])
-    expect(missingPieces({ finSize: '9', paddleSize: 'M', kickboard: true, pullBuoy: true, notes: '' })).toEqual([])
+    expect(missingPieces({ finSize: '9', finNumber: '4', paddleSize: 'M', paddleNumber: '2', kickboard: true, pullBuoy: true, notes: '' })).toEqual([])
+    expect(missingPieces({ finSize: '9', finNumber: '', paddleSize: 'M', paddleNumber: ' ', kickboard: true, pullBuoy: true, notes: '' })).toEqual([
+      'Missing fin number',
+      'Missing paddle number',
+    ])
   })
 })

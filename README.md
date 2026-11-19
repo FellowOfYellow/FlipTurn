@@ -46,6 +46,7 @@ deploy → Run workflow** redeploys without a code change
 | `gear-loans.json` | gear lent to swimmers |
 | `photos.json` | swimmer and coach photos (320px JPEG) |
 | `competitions.json`, `workouts.json` | reserved for later phases |
+| `FlipTurn data (read only)` | Google Sheet copy of everything above except photos |
 
 FlipTurn uses the `drive.file` scope, so it only sees files it created or that
 a coach picked. The head coach's first sign-in creates every file above. An
@@ -60,6 +61,13 @@ Drive copy and merges record by record (newest edit wins, deletes are kept as
 tombstones), so two coaches editing at once don't overwrite each other.
 Changes save to the device immediately and sync to Drive about 1.5 seconds
 later; only files whose contents changed are uploaded.
+
+The Google Sheet is a backup the coaches can read without the app. After each
+sync that changed something, the app builds an `.xlsx` (tabs: Swimmers,
+Coaches, Gear, Lent out, About) and uploads it over the sheet; Drive converts
+it. The JSON files stay the source of truth, so edits made in the sheet are not
+read back. The owner's app creates the sheet; an assistant coach's app updates
+it once it can see it (it's covered when they pick the folder's files).
 
 ## Phases
 

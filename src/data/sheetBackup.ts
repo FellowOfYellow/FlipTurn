@@ -6,6 +6,7 @@ import { zipSync, strToU8 } from 'fflate'
 import { yearsCoaching } from './actions'
 import { describeItem, summarizeGear } from './gear'
 import { RELAY_SLOTS, type AppData } from './types'
+import { liveWorkouts, sortWorkouts, workoutBlocks, workoutTags } from './workouts'
 
 export const BACKUP_NAME = 'FlipTurn data (read only)'
 export const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -91,6 +92,23 @@ export function backupTables(data: AppData, now = new Date()): Table[] {
                 : e.entries.map((sid) => swimmerName.get(sid) ?? 'Removed swimmer').join(', '),
             ]),
           ),
+      ],
+    },
+    {
+      name: 'Workouts',
+      rows: [
+        ['Workout', 'Date', 'Tags', 'Warm up', 'Sets', 'Cool down'],
+        ...sortWorkouts(liveWorkouts(data)).map((w) => {
+          const { warmup, sets, cooldown } = workoutBlocks(data, w)
+          return [
+            w.name,
+            w.date ?? '',
+            workoutTags(data, w).join(', '),
+            warmup?.text ?? '',
+            sets.map((s) => s.text).join('\n\n'),
+            cooldown?.text ?? '',
+          ]
+        }),
       ],
     },
     {

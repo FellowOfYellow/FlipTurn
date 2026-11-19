@@ -1,12 +1,15 @@
 import { HashRouter, Link, MemoryRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom'
 import { DataProvider, useData, wasSignedIn } from './data/DataProvider'
-import ComingSoon from './pages/ComingSoon'
 import CompetitionDetail from './pages/competitions/CompetitionDetail'
 import CompetitionEditor from './pages/competitions/CompetitionEditor'
 import CompetitionsPage from './pages/competitions/CompetitionsPage'
 import GearPage from './pages/GearPage'
 import ProfilePage from './pages/ProfilePage'
 import SwimmersPage from './pages/SwimmersPage'
+import LibraryPage from './pages/workouts/LibraryPage'
+import WorkoutDetail from './pages/workouts/WorkoutDetail'
+import WorkoutEditor from './pages/workouts/WorkoutEditor'
+import WorkoutsPage from './pages/workouts/WorkoutsPage'
 
 const TABS = [
   { to: '/gear', label: 'Gear', icon: '🎒' },
@@ -48,14 +51,11 @@ export default function App() {
               <Route path="/competitions/:id" element={<CompetitionDetail />} />
               <Route path="/competitions/:id/edit" element={<CompetitionEditor key="edit" />} />
               <Route path="/swimmers" element={<SwimmersPage />} />
-              <Route
-                path="/workouts"
-                element={
-                  <ComingSoon title="Workouts" phase={4}>
-                    Build workouts from saved warm ups, sets and cool downs, with sets tagged automatically.
-                  </ComingSoon>
-                }
-              />
+              <Route path="/workouts" element={<WorkoutsPage />} />
+              <Route path="/workouts/new" element={<WorkoutEditor />} />
+              <Route path="/workouts/library" element={<LibraryPage />} />
+              <Route path="/workouts/:id" element={<WorkoutDetail />} />
+              <Route path="/workouts/:id/edit" element={<WorkoutEditor key="edit" />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="*" element={<Navigate to="/gear" replace />} />
             </Routes>

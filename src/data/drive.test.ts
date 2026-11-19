@@ -41,7 +41,6 @@ afterEach(() => vi.unstubAllGlobals())
 function allFiles(data = emptyData()) {
   return {
     ...Object.fromEntries(Object.keys(FILES).map((name) => [name, fileContents(data, name)])),
-    'workouts.json': '{"version":1}',
     [BACKUP_NAME]: '',
   }
 }
@@ -83,6 +82,15 @@ describe('DriveClient', () => {
     const drive = new DriveClient('token')
     await drive.openTeamFolder('folder')
     expect((await drive.pull()).competitions).toBeUndefined()
+  })
+
+  it('reads an empty workouts file left by an older version', async () => {
+    fakeDrive({ ownedByMe: true, files: { ...allFiles(), 'workouts.json': '{"version":1}' } })
+    const drive = new DriveClient('token')
+    await drive.openTeamFolder('folder')
+    const pulled = await drive.pull()
+    expect(pulled.workouts).toBeUndefined()
+    expect(pulled.blocks).toBeUndefined()
   })
 
   it('creates the backup sheet for the owner, and only rewrites it when data changes', async () => {

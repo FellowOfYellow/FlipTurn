@@ -104,6 +104,12 @@ export default function ProfilePage() {
 
       <DriveSection />
 
+      <p className="px-4 py-6 text-center text-xs text-slate-500">
+        <a className="underline" href="https://fellowofyellow.github.io/FlipTurn/privacy.html" target="_blank" rel="noreferrer">
+          Privacy policy
+        </a>
+      </p>
+
       {editing && (
         <CoachForm
           coach={editing}

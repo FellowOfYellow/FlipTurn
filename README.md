@@ -49,6 +49,8 @@ One-time setup:
 
 After changing app code, run `npm run ios` again before building in Xcode.
 
+The privacy policy for the App Store listing and the Google consent screen is `public/privacy.html`, published at https://fellowofyellow.github.io/FlipTurn/privacy.html.
+
 In the app, sign-in uses Google's native iOS sign-in. Drive access is shared across the website and the app because they belong to the same Google Cloud project, so a team folder that an assistant coach joined on the website also opens in the app.
 
 ## How data is stored

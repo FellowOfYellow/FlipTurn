@@ -36,6 +36,21 @@ deploy → Run workflow** redeploys without a code change
 2. Google Cloud: the OAuth client's Authorized JavaScript origins must include
    `https://<username>.github.io`.
 
+## iPhone app (App Store)
+
+The App Store version wraps this same app with [Capacitor](https://capacitorjs.com). The Xcode project lives in `ios/`. You need a Mac with Xcode and an Apple Developer account.
+
+One-time setup:
+
+1. In Google Cloud ([Credentials](https://console.cloud.google.com/apis/credentials?project=flipturn-515208)), create an OAuth client of type **iOS** with bundle ID `com.fellowofyellow.flipturn`. Put its client ID in `.env` as `VITE_GOOGLE_IOS_CLIENT_ID`. It is public, like the web client ID.
+2. On the Mac: `npm install`, then `npm run ios`. This builds the app, copies it into the Xcode project, writes the Google sign-in callback into `Info.plist`, and opens Xcode.
+3. In Xcode, select the **App** target, open **Signing & Capabilities**, and choose your team.
+4. Run it on your iPhone, or choose **Product → Archive** to upload to App Store Connect.
+
+After changing app code, run `npm run ios` again before building in Xcode.
+
+In the app, sign-in uses Google's native iOS sign-in. Drive access is shared across the website and the app because they belong to the same Google Cloud project, so a team folder that an assistant coach joined on the website also opens in the app.
+
 ## How data is stored
 
 | Drive file | Contents |

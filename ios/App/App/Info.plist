@@ -66,5 +66,18 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<!-- flipturn:google-start -->
+	<key>GIDClientID</key>
+	<string>1014425648078-9hjrg7g322r4b61fngc1ugllhj7qo8i2.apps.googleusercontent.com</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.1014425648078-9hjrg7g322r4b61fngc1ugllhj7qo8i2</string>
+			</array>
+		</dict>
+	</array>
+	<!-- flipturn:google-end -->
 </dict>
 </plist>

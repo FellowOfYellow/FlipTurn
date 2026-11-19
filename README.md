@@ -13,8 +13,9 @@ npm test           # unit tests
 npm run build      # production build in dist/
 ```
 
-Without a Google client ID the app runs in local-only mode and saves to the
-browser. To turn on Google sign-in, create `.env.local`:
+Google sign-in is configured in `.env` (public values only). Without a client
+ID the app runs in local-only mode and saves to the browser. To point a local
+copy at a different Google Cloud project, override them in `.env.local`:
 
 ```
 VITE_GOOGLE_CLIENT_ID=<your OAuth web client ID>.apps.googleusercontent.com
@@ -31,8 +32,8 @@ Pushes to `main` build and deploy to GitHub Pages
 (`https://<username>.github.io/FlipTurn/`). In the repository settings:
 
 1. **Pages**: set Source to **GitHub Actions**.
-2. **Secrets and variables → Actions → Variables**: add `GOOGLE_CLIENT_ID`,
-   `GOOGLE_API_KEY` and `GOOGLE_APP_ID`.
+2. Google Cloud: the OAuth client's Authorized JavaScript origins must include
+   `https://<username>.github.io`.
 
 ## How data is stored
 

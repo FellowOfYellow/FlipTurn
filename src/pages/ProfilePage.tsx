@@ -12,7 +12,7 @@ import {
   setSchoolName,
   yearsCoaching,
 } from '../data/actions'
-import { useData } from '../data/DataProvider'
+import { useData, wasSignedIn } from '../data/DataProvider'
 import { FOLDER_NAME } from '../data/drive'
 import { pickerAvailable } from '../data/picker'
 import type { Coach } from '../data/types'
@@ -298,8 +298,35 @@ function InviteSheet({ onAddProfile, onClose }: { onAddProfile: () => void; onCl
 }
 
 function DriveSection() {
-  const { status, error, folderId, user, signIn, signOut, startNewTeam, joinTeam } = useData()
+  const { status, error, folderId, user, signIn, signOut, forgetDevice, startNewTeam, joinTeam } = useData()
   const [confirmingNew, setConfirmingNew] = useState(false)
+  const [confirmingForget, setConfirmingForget] = useState(false)
+  const forget = confirmingForget ? (
+    <div className="space-y-2 rounded-xl bg-slate-50 p-3">
+      <p className="text-sm">
+        This removes the team's data from this device. Anything that hasn't been saved to Google Drive yet will be lost. The
+        team's data in Drive isn't touched.
+      </p>
+      <div className="flex gap-2">
+        <Button variant="secondary" onClick={() => setConfirmingForget(false)}>
+          Back
+        </Button>
+        <Button
+          className="flex-1"
+          onClick={() => {
+            setConfirmingForget(false)
+            forgetDevice()
+          }}
+        >
+          Remove data from this device
+        </Button>
+      </div>
+    </div>
+  ) : (
+    <button type="button" className="min-h-11 text-sm font-semibold text-slate-600 underline" onClick={() => setConfirmingForget(true)}>
+      Remove team data from this device
+    </button>
+  )
   const connected = status === 'synced' || status === 'syncing' || status === 'error'
 
   return (
@@ -359,9 +386,11 @@ function DriveSection() {
                 Open the {FOLDER_NAME} folder
               </a>
             )}
-            <Button variant="secondary" onClick={signOut}>
+            <Button variant="secondary" onClick={() => void signOut()} disabled={status === 'syncing'}>
               Sign out
             </Button>
+            <p className="text-xs text-slate-500">Signing out removes the team's data from this device. It stays in Google Drive.</p>
+            {status === 'error' && forget}
           </>
         ) : (
           <>
@@ -370,6 +399,7 @@ function DriveSection() {
             <Button onClick={() => void signIn()} disabled={status === 'connecting'}>
               {status === 'connecting' ? 'Connecting…' : 'Sign in with Google'}
             </Button>
+            {wasSignedIn() && status !== 'connecting' && forget}
           </>
         )}
       </div>

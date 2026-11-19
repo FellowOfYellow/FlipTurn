@@ -33,3 +33,12 @@ export function saveLocal(data: AppData): void {
     // Storage full or blocked; Drive sync still keeps a copy when signed in.
   }
 }
+
+// Removes the team's data from this device, used when a coach signs out.
+export function clearLocal(): void {
+  try {
+    localStorage.removeItem(KEY)
+  } catch {
+    // Storage blocked, so nothing was saved here anyway.
+  }
+}

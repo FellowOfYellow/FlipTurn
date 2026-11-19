@@ -1,3 +1,4 @@
+import { scrubDeletedSwimmer } from './merge'
 import type { AppData, Coach, GearLoan, Swimmer } from './types'
 
 // Pure updates passed to update(); each stamps updatedAt so sync can merge.
@@ -31,7 +32,7 @@ export const deleteSwimmer =
     const now = Date.now()
     return {
       ...data,
-      swimmers: data.swimmers.map((s) => (s.id === id ? { ...s, deleted: true, updatedAt: now } : s)),
+      swimmers: data.swimmers.map((s) => (s.id === id ? scrubDeletedSwimmer({ ...s, deleted: true, updatedAt: now }) : s)),
       photos: data.photos.map((p) => (p.id === id ? { ...p, dataUrl: '', deleted: true, updatedAt: now } : p)),
       // Their open loans go with them so gear doesn't stay "lent out" forever.
       loans: data.loans.map((l) =>

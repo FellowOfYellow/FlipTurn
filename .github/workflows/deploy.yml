@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Lets a coach redeploy from the Actions tab (Run workflow) without a code change.
+  workflow_dispatch:
 
 permissions:
   contents: read

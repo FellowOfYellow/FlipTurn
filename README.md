@@ -28,7 +28,8 @@ a team folder that was shared with them.
 
 ## Deploying
 
-Pushes to `main` build and deploy to GitHub Pages
+Pushes to `main` build and deploy to GitHub Pages; **Actions → Test and
+deploy → Run workflow** redeploys without a code change
 (`https://<username>.github.io/FlipTurn/`). In the repository settings:
 
 1. **Pages**: set Source to **GitHub Actions**.

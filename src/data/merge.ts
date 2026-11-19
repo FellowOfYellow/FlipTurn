@@ -16,7 +16,9 @@ export function mergeData(a: AppData, b: Partial<AppData>): AppData {
   return {
     team: mergeRecords(a.team, b.team ?? []),
     coaches: mergeRecords(a.coaches, b.coaches ?? []),
-    swimmers: mergeRecords(a.swimmers, (b.swimmers ?? []).map(withSwimmerDefaults)),
+    // Scrubbed here too so deletes made by older versions of the app, which kept
+    // the details, get cleaned up in Drive on the next sync.
+    swimmers: mergeRecords(a.swimmers, (b.swimmers ?? []).map(withSwimmerDefaults)).map(scrubDeletedSwimmer),
     gear: mergeRecords(a.gear, b.gear ?? []),
     loans: mergeRecords(a.loans, b.loans ?? []),
     photos: mergeRecords(a.photos, b.photos ?? []),
@@ -44,6 +46,14 @@ export function withSwimmerDefaults(s: Partial<Swimmer> & SyncedRecord): Swimmer
     captain: false,
     ...s,
   }
+}
+
+// A deleted swimmer keeps only its id, delete flag and timestamp, so their
+// name and contact details (and their parents') don't linger in Drive or on
+// any coach's device. The tombstone still has to stay so the delete syncs.
+export function scrubDeletedSwimmer(s: Swimmer): Swimmer {
+  if (!s.deleted) return s
+  return { ...withSwimmerDefaults({ id: s.id, updatedAt: s.updatedAt }), active: false, deleted: true }
 }
 
 export function sameData(a: AppData, b: AppData): boolean {

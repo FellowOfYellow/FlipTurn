@@ -72,3 +72,23 @@ describe('swimmer profiles', () => {
     expect(setPhoto('s1', null)(data)).toBe(data)
   })
 })
+
+describe('deleting a swimmer', () => {
+  const ana = withSwimmerDefaults({
+    id: 's1', updatedAt: 0, firstName: 'Ana', lastName: 'Lopez', phone: '555-0100', email: 'ana@example.com',
+    parentName: 'Rosa Lopez', parentPhone: '555-0101', parentEmail: 'rosa@example.com', clubTeams: ['Sharks'],
+  })
+
+  it('erases their name and contact details, keeping only the tombstone', () => {
+    const data = deleteSwimmer('s1')(saveSwimmer(ana)(emptyData()))
+    const [s] = data.swimmers
+    expect(s.deleted).toBe(true)
+    expect(JSON.stringify(s)).not.toMatch(/Ana|Lopez|555|example\.com|Sharks/)
+  })
+
+  it('cleans up details left behind by older versions of the app', () => {
+    const old = { ...ana, deleted: true, updatedAt: 5 }
+    const [s] = mergeData(emptyData(), { swimmers: [old] }).swimmers
+    expect(s).toMatchObject({ id: 's1', deleted: true, updatedAt: 5, firstName: '', parentEmail: '' })
+  })
+})

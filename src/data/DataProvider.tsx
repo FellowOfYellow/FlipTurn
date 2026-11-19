@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { claimCoachProfile } from './actions'
 import { DriveClient, DriveError, type DriveUser } from './drive'
 import { googleClientId, requestAccessToken, revokeToken, type AccessToken } from './google'
-import { emptyData, loadLocal, saveLocal } from './localStore'
+import { clearLocal, emptyData, loadLocal, saveLocal } from './localStore'
 import { mergeData, sameData } from './merge'
 import { pickTeamFiles, pickTeamFolder } from './picker'
 import type { AppData } from './types'
@@ -24,7 +24,8 @@ interface DataContextValue {
   folderId: string | null
   user: DriveUser | null
   signIn: () => Promise<void>
-  signOut: () => void
+  signOut: () => Promise<void>
+  forgetDevice: () => void
   startNewTeam: () => Promise<void>
   joinTeam: () => Promise<void>
 }
@@ -34,6 +35,9 @@ const DataContext = createContext<DataContextValue | null>(null)
 const SAVE_DELAY_MS = 1500
 const SIGNED_IN_KEY = 'flipturn.signedIn'
 const FOLDER_KEY = 'flipturn.folderId'
+// The Google account whose team data is saved on this device. Data entered
+// before anyone signed in has no owner and moves into the first account.
+const OWNER_KEY = 'flipturn.owner'
 
 function readKey(key: string): string | null {
   try {
@@ -134,10 +138,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       const token = await requestAccessToken()
       tokenRef.current = token
-      const drive = driveRef.current ?? new DriveClient(token.value)
+      let drive = driveRef.current ?? new DriveClient(token.value)
       drive.setToken(token.value)
-      driveRef.current = drive
       const me = await drive.getUser()
+      const owner = readKey(OWNER_KEY)
+      if (owner && owner !== me.email) {
+        // A different coach is signing in on this device. Start them from a
+        // clean slate so the last account's team never reaches their Drive.
+        window.clearTimeout(saveTimer.current)
+        drive = new DriveClient(token.value)
+        writeKey(FOLDER_KEY, null)
+        clearLocal()
+        replaceData(emptyData())
+      }
+      driveRef.current = drive
+      writeKey(OWNER_KEY, me.email)
       userRef.current = me
       setUser(me)
       writeKey(SIGNED_IN_KEY, '1')
@@ -158,7 +173,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setStatus('signed-out')
       setError((e as Error).message)
     }
-  }, [finishConnecting])
+  }, [finishConnecting, replaceData])
 
   const startNewTeam = useCallback(async () => {
     const drive = driveRef.current
@@ -202,16 +217,48 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [finishConnecting])
 
-  const signOut = useCallback(() => {
+  // Signs out and removes the team's data from this device, so the next person
+  // to use it can't see the roster.
+  const forgetDevice = useCallback(() => {
+    window.clearTimeout(saveTimer.current)
     if (tokenRef.current) revokeToken(tokenRef.current.value)
     tokenRef.current = null
     driveRef.current = null
     userRef.current = null
     setUser(null)
     setFolderId(null)
-    writeKey(SIGNED_IN_KEY, null)
+    setError(null)
+    for (const key of [SIGNED_IN_KEY, FOLDER_KEY, OWNER_KEY]) writeKey(key, null)
+    clearLocal()
+    dataRef.current = emptyData()
+    setData(dataRef.current)
     setStatus('signed-out')
   }, [])
+
+  // Saves any last changes to Drive first. If that fails, the coach stays signed
+  // in so nothing is lost; forgetDevice skips the save.
+  const signOut = useCallback(async () => {
+    const drive = driveRef.current
+    const token = tokenRef.current
+    window.clearTimeout(saveTimer.current)
+    if (drive?.folderId && token && !syncing.current) {
+      syncing.current = true
+      setStatus('syncing')
+      try {
+        await drive.push(dataRef.current)
+      } catch {
+        setStatus('error')
+        setError("Couldn't save your latest changes to Google Drive, so you're still signed in. Check your connection and try again.")
+        return
+      } finally {
+        syncing.current = false
+      }
+    } else if (syncing.current) {
+      setError('Still saving. Try signing out again in a moment.')
+      return
+    }
+    forgetDevice()
+  }, [forgetDevice])
 
   // Pick up other coaches' edits when the app comes back to the foreground.
   useEffect(() => {
@@ -228,7 +275,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   return (
     <DataContext.Provider
-      value={{ data, update, status, error, folderId, user, signIn, signOut, startNewTeam, joinTeam }}
+      value={{ data, update, status, error, folderId, user, signIn, signOut, forgetDevice, startNewTeam, joinTeam }}
     >
       {children}
     </DataContext.Provider>

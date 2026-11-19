@@ -1,5 +1,9 @@
-// Google sign-in through Google Identity Services. FlipTurn asks only for the
-// drive.file scope: it can see files it created or that the coach picks.
+// Google sign-in. On the website it uses Google Identity Services; in the iOS
+// app it uses Google's native sign-in, because Google blocks its web sign-in
+// inside apps. FlipTurn asks only for the drive.file scope: it can see files it
+// created or that the coach picks.
+
+import { Capacitor } from '@capacitor/core'
 
 const GIS_SRC = 'https://accounts.google.com/gsi/client'
 const SCOPE = 'https://www.googleapis.com/auth/drive.file'
@@ -32,8 +36,16 @@ declare global {
   }
 }
 
-// Preview builds run inside a sandboxed frame where Google's sign-in popup can't open.
-export const googleClientId = import.meta.env.VITE_PREVIEW ? '' : (import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '')
+export const isNativeApp = Capacitor.isNativePlatform()
+const iosClientId = import.meta.env.VITE_GOOGLE_IOS_CLIENT_ID ?? ''
+
+// Preview builds run inside a sandboxed frame where Google's sign-in popup can't
+// open. Empty means sign-in isn't set up, and the app stays on this device only.
+export const googleClientId = import.meta.env.VITE_PREVIEW
+  ? ''
+  : isNativeApp
+    ? iosClientId
+    : (import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '')
 
 let scriptPromise: Promise<void> | null = null
 
@@ -60,6 +72,7 @@ export interface AccessToken {
 // Opens Google's consent popup (or reuses an earlier consent) and returns a
 // one-hour access token. Must be called from a tap or click.
 export async function requestAccessToken(): Promise<AccessToken> {
+  if (isNativeApp) return requestNativeToken()
   await loadScript()
   return new Promise((resolve, reject) => {
     const client = window.google!.accounts.oauth2.initTokenClient({
@@ -83,5 +96,31 @@ export async function requestAccessToken(): Promise<AccessToken> {
 }
 
 export function revokeToken(token: string): void {
+  if (isNativeApp) {
+    void import('@capgo/capacitor-social-login').then(({ SocialLogin }) => SocialLogin.logout({ provider: 'google' }))
+    return
+  }
   window.google?.accounts.oauth2.revoke(token)
+}
+
+let nativeReady: Promise<typeof import('@capgo/capacitor-social-login').SocialLogin> | null = null
+
+function nativeLogin() {
+  nativeReady ??= import('@capgo/capacitor-social-login').then(async ({ SocialLogin }) => {
+    await SocialLogin.initialize({ google: { iOSClientId: iosClientId, mode: 'online' } })
+    return SocialLogin
+  })
+  return nativeReady
+}
+
+async function requestNativeToken(): Promise<AccessToken> {
+  const SocialLogin = await nativeLogin()
+  const { result } = await SocialLogin.login({ provider: 'google', options: { scopes: [SCOPE] } })
+  if (!('accessToken' in result) || !result.accessToken?.token) throw new Error('Google sign-in failed.')
+  const expires = result.accessToken.expires ? Date.parse(result.accessToken.expires) : NaN
+  return {
+    value: result.accessToken.token,
+    // Refresh a little early; Google's tokens last an hour.
+    expiresAt: Number.isFinite(expires) ? expires : Date.now() + 55 * 60 * 1000,
+  }
 }

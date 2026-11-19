@@ -21,7 +21,7 @@ export default function App() {
     <DataProvider>
       <Router initialEntries={['/gear']}>
         <div className="md:flex">
-          <nav className="hidden md:sticky md:top-0 md:flex md:h-dvh md:w-56 md:shrink-0 md:flex-col md:border-r md:border-slate-200 md:bg-white md:p-4">
+          <nav className="hidden md:sticky md:top-0 md:flex md:h-dvh md:w-56 md:shrink-0 md:flex-col md:border-r md:border-slate-200 md:bg-white md:p-4 md:pt-[max(1rem,env(safe-area-inset-top))]">
             <div className="mb-6 px-3 text-xl font-bold text-brand-700">FlipTurn</div>
             {TABS.map((tab) => (
               <NavLink
@@ -36,7 +36,7 @@ export default function App() {
               </NavLink>
             ))}
           </nav>
-          <main className="min-w-0 flex-1 pb-24 md:pb-8">
+          <main className="min-w-0 flex-1 pt-[env(safe-area-inset-top)] pb-24 md:pb-8">
             <SyncBanner />
             <Routes>
               <Route path="/gear" element={<GearPage />} />
